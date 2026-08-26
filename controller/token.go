@@ -17,6 +17,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// 非管理员用户令牌过期时间上限（30 天），超出需管理员开通套餐
+const tokenMaxUserExpiry int64 = 30 * 24 * 60 * 60
+
+// 非管理员无套餐时的默认初始额度（与注册时系统自动发的 demo token 一致）
+const tokenDefaultRemainQuota int64 = 500000
+
 type tokenAutoGroupsInput struct {
 	Set    bool
 	Groups []string
@@ -261,6 +267,42 @@ func GetTokenUsage(c *gin.Context) {
 	})
 }
 
+// applySubscriptionOrDefaultsToToken fills token fields based on user's active subscription.
+// If the user has an active subscription, its EndTime / AmountTotal / UpgradeGroup become
+// authoritative. If not, safe defaults are applied (30-day expiry, fixed initial quota).
+// Admin users keep full control of form values; this is a no-op for them.
+func applySubscriptionOrDefaultsToToken(userId int, role int, token *model.Token) {
+	if role >= common.RoleAdminUser {
+		return
+	}
+	now := common.GetTimestamp()
+	sub, err := model.GetMostRecentActiveSubscription(userId)
+	if err != nil {
+		common.SysLog("applySubscriptionOrDefaultsToToken: failed to query subscription for user " + strconv.Itoa(userId) + ": " + err.Error())
+	}
+	if sub != nil && sub.EndTime > now {
+		token.ExpiredTime = sub.EndTime
+		if sub.AmountTotal > 0 {
+			remaining := sub.AmountTotal - sub.AmountUsed
+			if remaining < 0 {
+				remaining = 0
+			}
+			token.RemainQuota = int(remaining)
+			token.UnlimitedQuota = false
+		} else {
+			token.RemainQuota = 0
+			token.UnlimitedQuota = true
+		}
+		if sub.UpgradeGroup != "" {
+			token.Group = sub.UpgradeGroup
+		}
+	} else {
+		token.ExpiredTime = now + tokenMaxUserExpiry
+		token.RemainQuota = int(tokenDefaultRemainQuota)
+		token.UnlimitedQuota = false
+	}
+}
+
 func AddToken(c *gin.Context) {
 	request := tokenRequest{}
 	err := c.ShouldBindJSON(&request)
@@ -273,6 +315,8 @@ func AddToken(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgTokenNameTooLong)
 		return
 	}
+	// 非管理员：从套餐继承默认值（忽略表单里的 quota/expiry/group/unlimited）
+	applySubscriptionOrDefaultsToToken(c.GetInt("id"), c.GetInt("role"), &token)
 	// 非无限额度时，检查额度值是否超出有效范围
 	if !token.UnlimitedQuota {
 		if token.RemainQuota < 0 {
@@ -415,6 +459,8 @@ func UpdateToken(c *gin.Context) {
 				return
 			}
 		}
+		// 非管理员：从套餐重新同步 quota/expiry/group/unlimited（状态切换不受影响）
+		applySubscriptionOrDefaultsToToken(c.GetInt("id"), c.GetInt("role"), cleanToken)
 	}
 	err = cleanToken.Update()
 	if err != nil {

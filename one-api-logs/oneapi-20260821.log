@@ -1,0 +1,19 @@
+[SYS] 2026/08/21 - 09:33:26 | One API v0.6.10 started 
+[SYS] 2026/08/21 - 09:33:26 | SQL_DSN not set, using SQLite as database 
+[SYS] 2026/08/21 - 09:33:26 | database migration started 
+[SYS] 2026/08/21 - 09:33:26 | database migrated 
+[SYS] 2026/08/21 - 09:33:26 | REDIS_CONN_STRING not set, Redis is not enabled 
+[SYS] 2026/08/21 - 09:33:26 | using theme default 
+[SYS] 2026/08/21 - 09:33:26 | initializing token encoders 
+[SYS] 2026/08/21 - 09:33:27 | token encoders initialized 
+[SYS] 2026/08/21 - 09:33:27 | server started on http://localhost:3001 
+[GIN] 2026/08/21 - 09:33:38 | 2026082109333881258590006786224 | 200 |            0s |             ::1 |     GET /api/status
+[GIN] 2026/08/21 - 09:40:10 | 2026082109401037163820041205825 | 200 |    119.7585ms |             ::1 |     GET /
+[GIN] 2026/08/21 - 09:40:10 | 2026082109401058893550019429615 | 200 |     56.7946ms |             ::1 |     GET /static/css/main.ed916cbf.css
+[GIN] 2026/08/21 - 09:40:10 | 2026082109401058693530063691256 | 200 |     70.7935ms |             ::1 |     GET /static/js/main.5da99bf0.js
+[GIN] 2026/08/21 - 09:40:11 | 2026082109401110832500038808047 | 200 |      4.3428ms |             ::1 |     GET /static/js/832.b9d62cd6.chunk.js
+[GIN] 2026/08/21 - 09:40:11 | 2026082109401111212750076696674 | 200 |      1.0366ms |             ::1 |     GET /logo.png
+[GIN] 2026/08/21 - 09:40:11 | 2026082109401119615960099596022 | 200 |      6.9942ms |             ::1 |     GET /static/media/icons.38c6d8bab26db77d8c80.woff2
+[GIN] 2026/08/21 - 09:40:11 | 2026082109401120115240056454098 | 200 |      6.0013ms |             ::1 |     GET /api/status
+[GIN] 2026/08/21 - 09:40:11 | 2026082109401123929270050448699 | 200 |            0s |             ::1 |     GET /api/notice
+[GIN] 2026/08/21 - 09:40:11 | 2026082109401124310410057246045 | 200 |         538µs |             ::1 |     GET /api/home_page_content

@@ -51,6 +51,9 @@ token.db_error: "无效的令牌，数据库查询出错，请联系管理员"
 token.auto_groups_too_many: "每个令牌最多可选择 {{.Max}} 个 Auto 分组"
 token.auto_groups_duplicate: "Auto 分组 {{.Group}} 重复"
 token.auto_groups_invalid: "Auto 分组 {{.Group}} 不可用或无权访问"
+token.unlimited_admin_only: "无限额度仅管理员可设置"
+token.never_expire_admin_only: "永不过期仅管理员可设置"
+token.expiry_too_long: "过期时间最多 30 天，超出部分需要管理员开通套餐"
 
 # Redemption messages
 redemption.name_length: "兑换码名称长度必须在1-20之间"
@@ -129,6 +132,7 @@ subscription.reset_cycle_gt_zero: "自定义重置周期需大于0秒"
 subscription.purchase_max: "已达到该套餐购买上限"
 subscription.invalid_id: "无效的订阅ID"
 subscription.invalid_user_id: "无效的用户ID"
+subscription.model_not_allowed: "当前订阅不覆盖该模型，请检查套餐可用范围"
 
 # Payment messages
 payment.not_configured: "当前管理员未配置支付信息"

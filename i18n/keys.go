@@ -58,6 +58,9 @@ const (
 	MsgTokenAutoGroupsTooMany    = "token.auto_groups_too_many"
 	MsgTokenAutoGroupsDuplicate  = "token.auto_groups_duplicate"
 	MsgTokenAutoGroupsInvalid    = "token.auto_groups_invalid"
+	MsgTokenUnlimitedAdminOnly   = "token.unlimited_admin_only"
+	MsgTokenNeverExpireAdminOnly = "token.never_expire_admin_only"
+	MsgTokenExpiryTooLong       = "token.expiry_too_long"
 )
 
 // Redemption related messages
@@ -144,6 +147,9 @@ const (
 	MsgSubscriptionPurchaseMax      = "subscription.purchase_max"
 	MsgSubscriptionInvalidId        = "subscription.invalid_id"
 	MsgSubscriptionInvalidUserId    = "subscription.invalid_user_id"
+	// MsgSubscriptionModelNotAllowed is returned when the requested model is
+	// excluded from every active subscription plan a user owns.
+	MsgSubscriptionModelNotAllowed = "subscription.model_not_allowed"
 )
 
 // Payment related messages

@@ -185,6 +185,11 @@ type SubscriptionPlan struct {
 	QuotaResetPeriod        string `json:"quota_reset_period" gorm:"type:varchar(16);default:'never'"`
 	QuotaResetCustomSeconds int64  `json:"quota_reset_custom_seconds" gorm:"type:bigint;default:0"`
 
+	// AllowedModels is a comma-separated allow-list of model names that this
+	// subscription grants access to. Empty means "no restriction" — all models
+	// available to the user can be billed against this subscription.
+	AllowedModels string `json:"allowed_models" gorm:"type:text;default:''"`
+
 	CreatedAt int64 `json:"created_at" gorm:"bigint"`
 	UpdatedAt int64 `json:"updated_at" gorm:"bigint"`
 }
@@ -276,6 +281,10 @@ type UserSubscription struct {
 	// Whether wallet fallback is allowed after this subscription's quota is exhausted (snapshot from plan)
 	AllowWalletOverflow bool `json:"allow_wallet_overflow"`
 
+	// AllowedModels is the comma-separated model allow-list snapshotted from
+	// the plan at purchase time. Empty = no restriction.
+	AllowedModels string `json:"allowed_models" gorm:"type:text;default:''"`
+
 	CreatedAt int64 `json:"created_at" gorm:"bigint"`
 	UpdatedAt int64 `json:"updated_at" gorm:"bigint"`
 }
@@ -290,6 +299,42 @@ func (s *UserSubscription) BeforeCreate(tx *gorm.DB) error {
 func (s *UserSubscription) BeforeUpdate(tx *gorm.DB) error {
 	s.UpdatedAt = common.GetTimestamp()
 	return nil
+}
+
+// GetAllowedModels returns the snapshot model allow-list. Empty = no
+// restriction, every model the user can access is allowed.
+func (s *UserSubscription) GetAllowedModels() []string {
+	if s == nil || s.AllowedModels == "" {
+		return nil
+	}
+	parts := strings.Split(s.AllowedModels, ",")
+	out := make([]string, 0, len(parts))
+	for _, m := range parts {
+		m = strings.TrimSpace(m)
+		if m == "" {
+			continue
+		}
+		out = append(out, m)
+	}
+	return out
+}
+
+// IsModelAllowed reports whether this subscription grants access to modelName.
+// An empty allow-list means unrestricted.
+func (s *UserSubscription) IsModelAllowed(modelName string) bool {
+	allowed := s.GetAllowedModels()
+	if len(allowed) == 0 {
+		return true
+	}
+	if strings.TrimSpace(modelName) == "" {
+		return false
+	}
+	for _, m := range allowed {
+		if m == modelName {
+			return true
+		}
+	}
+	return false
 }
 
 type SubscriptionSummary struct {
@@ -380,6 +425,43 @@ func calcNextResetTime(base time.Time, plan *SubscriptionPlan, endUnix int64) in
 		return 0
 	}
 	return next.Unix()
+}
+
+// GetAllowedModels returns the plan model allow-list. An empty result means
+// "no restriction" — every model available to the user is permitted.
+// Whitespace-only entries are ignored.
+func (p *SubscriptionPlan) GetAllowedModels() []string {
+	if p == nil || p.AllowedModels == "" {
+		return nil
+	}
+	parts := strings.Split(p.AllowedModels, ",")
+	out := make([]string, 0, len(parts))
+	for _, m := range parts {
+		m = strings.TrimSpace(m)
+		if m == "" {
+			continue
+		}
+		out = append(out, m)
+	}
+	return out
+}
+
+// IsModelAllowed reports whether the given model name may consume quota from
+// this plan. An empty allow-list grants unrestricted access.
+func (p *SubscriptionPlan) IsModelAllowed(modelName string) bool {
+	allowed := p.GetAllowedModels()
+	if len(allowed) == 0 {
+		return true
+	}
+	if strings.TrimSpace(modelName) == "" {
+		return false
+	}
+	for _, m := range allowed {
+		if m == modelName {
+			return true
+		}
+	}
+	return false
 }
 
 func GetSubscriptionPlanById(id int) (*SubscriptionPlan, error) {
@@ -548,6 +630,7 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 		PrevUserGroup:       prevGroup,
 		DowngradeGroup:      strings.TrimSpace(plan.DowngradeGroup),
 		AllowWalletOverflow: allowWalletOverflow,
+		AllowedModels:       strings.TrimSpace(plan.AllowedModels),
 		CreatedAt:           common.GetTimestamp(),
 		UpdatedAt:           common.GetTimestamp(),
 	}
@@ -842,6 +925,27 @@ func PurchaseSubscriptionWithBalance(userId int, planId int) error {
 	msg := fmt.Sprintf("使用余额购买订阅成功，套餐: %s，支付金额: %.2f，扣除额度: %d", logPlanTitle, logMoney, chargedQuota)
 	RecordLog(userId, LogTypeTopup, msg)
 	return nil
+}
+
+// GetMostRecentActiveSubscription returns the user's single most recently active subscription.
+// Used to derive default token settings (expiry, quota, group) when a non-admin user creates an API key.
+// Returns nil, nil if no active subscription exists (not an error).
+func GetMostRecentActiveSubscription(userId int) (*UserSubscription, error) {
+	if userId <= 0 {
+		return nil, errors.New("invalid userId")
+	}
+	now := common.GetTimestamp()
+	var sub UserSubscription
+	err := DB.Where("user_id = ? AND status = ? AND end_time > ?", userId, "active", now).
+		Order("end_time desc, id desc").
+		First(&sub).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &sub, nil
 }
 
 // GetAllActiveUserSubscriptions returns all active subscriptions for a user.
@@ -1341,12 +1445,28 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 		if len(subs) == 0 {
 			return errors.New("no active subscription")
 		}
+		modelMatched := false
 		for _, candidate := range subs {
 			sub := candidate
 			plan, err := getSubscriptionPlanByIdTx(tx, sub.PlanId)
 			if err != nil {
 				return err
 			}
+			// Per-plan model allow-list enforcement. The snapshot on
+			// UserSubscription is authoritative when present so retroactive
+			// edits to the plan do not change what the user already paid
+			// for; only fall back to the live plan when the snapshot is
+			// empty (e.g. subscriptions bought before this field existed).
+			allowed := false
+			if sub.AllowedModels != "" {
+				allowed = sub.IsModelAllowed(modelName)
+			} else {
+				allowed = plan.IsModelAllowed(modelName)
+			}
+			if !allowed {
+				continue
+			}
+			modelMatched = true
 			if err := maybeResetUserSubscriptionWithPlanTx(tx, &sub, plan, now); err != nil {
 				return err
 			}
@@ -1389,6 +1509,9 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			returnValue.AmountUsedBefore = usedBefore
 			returnValue.AmountUsedAfter = sub.AmountUsed
 			return nil
+		}
+		if !modelMatched {
+			return fmt.Errorf("subscription does not cover model %q", modelName)
 		}
 		return fmt.Errorf("subscription quota insufficient, need=%d", amount)
 	})

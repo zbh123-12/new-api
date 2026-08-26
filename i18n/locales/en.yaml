@@ -50,6 +50,9 @@ token.db_error: "Invalid token, database query error, please contact administrat
 token.auto_groups_too_many: "A token can select at most {{.Max}} Auto groups"
 token.auto_groups_duplicate: "Auto group {{.Group}} is duplicated"
 token.auto_groups_invalid: "Auto group {{.Group}} is unavailable or unauthorized"
+token.unlimited_admin_only: "Unlimited quota is only available to administrators"
+token.never_expire_admin_only: "Setting never-expire is only available to administrators"
+token.expiry_too_long: "Expiry cannot exceed 30 days for non-admin tokens,"
 
 # Redemption messages
 redemption.name_length: "Redemption code name length must be between 1-20"
@@ -128,6 +131,7 @@ subscription.reset_cycle_gt_zero: "Custom reset cycle must be greater than 0 sec
 subscription.purchase_max: "Purchase limit for this plan has been reached"
 subscription.invalid_id: "Invalid subscription ID"
 subscription.invalid_user_id: "Invalid user ID"
+subscription.model_not_allowed: "Your active subscription does not cover the requested model"
 
 # Payment messages
 payment.not_configured: "Payment information has not been configured by administrator"
