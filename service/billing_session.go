@@ -225,6 +225,18 @@ func (s *BillingSession) preConsume(c *gin.Context, quota int) *types.NewAPIErro
 				types.ErrorCodeInsufficientUserQuota, http.StatusForbidden,
 				types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
 		}
+		// HARD block: subscription exists but does not cover the model.
+		// Distinguish from "quota exhausted" so the subscription_first path in NewBillingSession
+		// does NOT fall back to wallet even if the user has wallet balance.
+		if errors.Is(err, model.ErrSubscriptionModelNotAllowed) {
+			return types.NewErrorWithStatusCode(
+				err,
+				types.ErrorCodeSubscriptionModelNotAllowed,
+				http.StatusForbidden,
+				types.ErrOptionWithSkipRetry(),
+				types.ErrOptionWithNoRecordErrorLog(),
+			)
+		}
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "no active subscription") || strings.Contains(errMsg, "subscription quota insufficient") {
 			return types.NewErrorWithStatusCode(fmt.Errorf("订阅额度不足或未配置订阅: %s", errMsg), types.ErrorCodeInsufficientUserQuota, http.StatusForbidden, types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())

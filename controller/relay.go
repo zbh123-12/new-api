@@ -163,6 +163,26 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 	if priceData.FreeModel {
 		logger.LogInfo(c, fmt.Sprintf("模型 %s 免费，跳过预扣费", relayInfo.OriginModelName))
+		// FREE-PRICE SHORTCUT: when a model is treated as free because it has no
+		// configured price/ratio, PreConsumeBilling is skipped entirely. Without
+		// an explicit subscription check here, a user could call any model on
+		// their subscription for free — silently bypassing the subscription's
+		// allowed_models restriction. Run the lightweight subscription check
+		// first; if any active subscription is restrictive on this model, return 403.
+		var subFixErr error
+		if subFixErr = model.CheckSubscriptionModelAllowed(relayInfo.UserId, relayInfo.OriginModelName); subFixErr != nil {
+			if errors.Is(subFixErr, model.ErrSubscriptionModelNotAllowed) {
+				newAPIError = types.NewErrorWithStatusCode(
+					subFixErr,
+					types.ErrorCodeSubscriptionModelNotAllowed,
+					http.StatusForbidden,
+					types.ErrOptionWithSkipRetry(),
+					types.ErrOptionWithNoRecordErrorLog(),
+				)
+				return
+			}
+			// Other errors are DB issues — log but DO NOT block the request.
+			logger.LogError(c, "subscription model check failed: "+subFixErr.Error())
 	} else {
 		newAPIError = service.PreConsumeBilling(c, priceData.QuotaToPreConsume, relayInfo)
 		if newAPIError != nil {

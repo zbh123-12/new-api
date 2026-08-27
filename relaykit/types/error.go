@@ -83,8 +83,12 @@ const (
 	ErrorCodeUpdateDataError ErrorCode = "update_data_error"
 
 	// quota error
-	ErrorCodeInsufficientUserQuota      ErrorCode = "insufficient_user_quota"
-	ErrorCodePreConsumeTokenQuotaFailed ErrorCode = "pre_consume_token_quota_failed"
+	ErrorCodeInsufficientUserQuota         ErrorCode = "insufficient_user_quota"
+	ErrorCodePreConsumeTokenQuotaFailed    ErrorCode = "pre_consume_token_quota_failed"
+
+	// 订阅存在但不允许请求的模型。硬封锁——不应回退到钱包，
+	// 即使用户钱包有余额也直接 403。
+	ErrorCodeSubscriptionModelNotAllowed  ErrorCode = "subscription_model_not_allowed"
 )
 
 type NewAPIError struct {

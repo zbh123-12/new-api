@@ -123,32 +123,53 @@ function Login-User {
 
 function Invoke-ChatCall {
     param([string]$Model, [string]$Key)
-    $headers = @{ 'Content-Type' = 'application/json'; 'Authorization' = 'Bearer ' + $Key }
-    $body = @{
-        model      = $Model
-        messages   = @(@{ role = 'user'; content = 'ping' })
-        max_tokens = 4
-    } | ConvertTo-Json -Depth 8
+    # Use System.Net.WebRequest directly to call /v1/chat/completions. This
+    # avoids PowerShell Invoke-WebRequest (which cannot reliably read 4xx bodies)
+    # and avoids shell-quoting issues from passing JSON via curl.
+    $url = $BaseUrl + '/v1/chat/completions'
+    $json = (@{ model = $Model; messages = @(@{ role = 'user'; content = 'ping' }); max_tokens = 4 } | ConvertTo-Json -Depth 8 -Compress)
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
+    $req = [System.Net.WebRequest]::Create($url)
+    $req.Method = 'POST'
+    $req.ContentType = 'application/json; charset=utf-8'
+    $req.Headers.Add('Authorization', 'Bearer ' + $Key)
+    $req.ContentLength = $bytes.Length
+    $req.Timeout = 30000
     $status = 0
-    $responseBody = ''
+    $respBody = ''
     try {
-        $respRaw = Invoke-WebRequest -Method POST -Uri ($BaseUrl + '/v1/chat/completions') -Headers $headers -Body $body -TimeoutSec 30
-        $status       = [int]$respRaw.StatusCode
-        $responseBody = $respRaw.Content
-    } catch {
-        if ($_.Exception.Response) {
-            try { $status = [int]$_.Exception.Response.StatusCode.value__ } catch { $status = 0 }
+        $stream = $req.GetRequestStream()
+        $stream.Write($bytes, 0, $bytes.Length)
+        $stream.Close()
+        $resp = $req.GetResponse()
+        $respStream = $resp.GetResponseStream()
+        $reader = New-Object System.IO.StreamReader($respStream, [System.Text.Encoding]::UTF8)
+        $respBody = $reader.ReadToEnd()
+        $reader.Close()
+        $respStream.Close()
+        $resp.Close()
+        $status = [int]$resp.StatusCode
+    } catch [System.Net.WebException] {
+        $resp = $_.Exception.Response
+        if ($resp) {
+            $status = [int]$resp.StatusCode
             try {
-                $stream = $_.Exception.Response.GetResponseStream()
-                $reader = New-Object System.IO.StreamReader $stream
-                $responseBody = $reader.ReadToEnd()
+                $respStream = $resp.GetResponseStream()
+                $reader = New-Object System.IO.StreamReader($respStream, [System.Text.Encoding]::UTF8)
+                $respBody = $reader.ReadToEnd()
                 $reader.Close()
-            } catch { $responseBody = $_.Exception.Message }
+                $respStream.Close()
+            } catch {
+                $respBody = ''
+            }
         } else {
-            $responseBody = $_.Exception.Message
+            $respBody = $_.Exception.Message
         }
+    } catch {
+        $status = 0
+        $respBody = $_.Exception.Message
     }
-    return @{ Status = $status; Body = $responseBody }
+    return @{ Status = $status; Body = $respBody }
 }
 
 # --- Step 1: Login as admin ----------------------------------------------
@@ -186,6 +207,7 @@ try {
     }
 }
 
+
 # --- Step 3: Login as test user ------------------------------------------
 $script:stepNum++
 Step-Name ('Login as test user ' + $TestUser)
@@ -203,6 +225,16 @@ try {
     exit 1
 }
 
+
+# --- Step 3.5: Reset test-user subscriptions (so old empty allowed_models rows do not bypass) ---
+
+
+$script:stepNum++
+Step-Name ('Reset test user subscriptions via psql')
+$ErrorActionPreference = 'SilentlyContinue'
+docker compose exec postgres psql -U root -d new-api -c ('DELETE FROM user_subscriptions WHERE user_id = ' + $testUserId + ';') 2>$null | Out-Null
+$ErrorActionPreference = 'Continue'
+Pass-Label
 # --- Step 4: Create the subscription plan --------------------------------
 $script:stepNum++
 Step-Name ('Admin creates subscription plan with allow-list (model=' + $AllowedModel + ')')
@@ -269,6 +301,7 @@ try {
     $script:failures++
 }
 
+
 # --- Step 6: User verifies via /api/subscription/self --------------------
 $script:stepNum++
 Step-Name 'User verifies own subscription via GET /api/subscription/self'
@@ -285,6 +318,30 @@ try {
     Info ('subscription id=' + $hit.id + ' plan_id=' + $hit.plan_id + ' amount_total=' + $hit.amount_total + ' allowed_models=' + $hit.allowed_models)
     if ($hit.allowed_models -match [regex]::Escape($AllowedModel)) { Pass-Label }
     else { Fail-Label 'allowed_models snapshot missing the allowed model name'; $script:failures++ }
+} catch {
+    Fail-Label $_.Exception.Message
+    $script:failures++
+}
+
+# --- Step 6.5: Force user's billing_preference to subscription_only so tests exercise the subscription path ---
+$script:stepNum++
+Step-Name 'Force user billing_preference = subscription_only (PUT /api/subscription/self/preference)'
+try {
+    $prefResp = Invoke-Api -Method GET -Path '/api/subscription/self' -Token $userToken
+    $prefData = Extract-Data $prefResp
+    $originalPref = if ($prefData) { $prefData.billing_preference } else { 'unknown' }
+    Info ('current billing_preference = ' + $originalPref)
+
+    $null = Invoke-Api -Method PUT -Path '/api/subscription/self/preference' -Token $userToken -Body @{ billing_preference = 'subscription_only' }
+    $verify = Invoke-Api -Method GET -Path '/api/subscription/self' -Token $userToken
+    $verifyData = Extract-Data $verify
+    if ($verifyData.billing_preference -eq 'subscription_only') {
+        Pass-Label
+        Info ('set to subscription_only (was ' + $originalPref + ')')
+    } else {
+        Fail-Label ('preference did not update, still = ' + $verifyData.billing_preference)
+        $script:failures++
+    }
 } catch {
     Fail-Label $_.Exception.Message
     $script:failures++

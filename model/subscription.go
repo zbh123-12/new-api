@@ -36,6 +36,10 @@ const (
 var (
 	ErrSubscriptionOrderNotFound      = errors.New("subscription order not found")
 	ErrSubscriptionOrderStatusInvalid = errors.New("subscription order status invalid")
+	// ErrSubscriptionModelNotAllowed means the user has at least one active subscription,
+	// but none of them cover the requested model. This is a HARD block: callers MUST
+	// return 403 instead of falling back to wallet. Use errors.Is to detect.
+	ErrSubscriptionModelNotAllowed = errors.New("subscription does not cover model")
 )
 
 const (
@@ -1457,11 +1461,14 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			// edits to the plan do not change what the user already paid
 			// for; only fall back to the live plan when the snapshot is
 			// empty (e.g. subscriptions bought before this field existed).
+			var allowedVia string
 			allowed := false
 			if sub.AllowedModels != "" {
 				allowed = sub.IsModelAllowed(modelName)
+				allowedVia = "sub.snapshot"
 			} else {
 				allowed = plan.IsModelAllowed(modelName)
+				allowedVia = "plan.live"
 			}
 			if !allowed {
 				continue
@@ -1511,7 +1518,11 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			return nil
 		}
 		if !modelMatched {
-			return fmt.Errorf("subscription does not cover model %q", modelName)
+			// HARD block: wrap the sentinel so callers can detect via errors.Is.
+			// Returning an anonymous fmt.Errorf (the previous behavior) silently fell
+			// through to wallet billing in subscription_first mode, allowing users to
+			// call any model ignoring the subscription's allowed list.
+			return fmt.Errorf("%w %q", ErrSubscriptionModelNotAllowed, modelName)
 		}
 		return fmt.Errorf("subscription quota insufficient, need=%d", amount)
 	})
@@ -1519,6 +1530,47 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 		return nil, err
 	}
 	return returnValue, nil
+}
+
+// CheckSubscriptionModelAllowed returns nil if the user has no active subscription,
+// OR if at least one active subscription allows the requested model. If the user
+// has one or more active subscriptions but NONE of them allow the model, returns
+// ErrSubscriptionModelNotAllowed (use errors.Is to detect).
+//
+// This is a lightweight check that does no quota deduction: it is meant to be
+// invoked from code paths where PreConsumeUserSubscription is otherwise skipped
+// (e.g. when the model is treated as "free" because it has no configured price).
+func CheckSubscriptionModelAllowed(userId int, modelName string) error {
+	if userId <= 0 {
+		return nil
+	}
+	now := GetDBTimestamp()
+	var subs []UserSubscription
+	if err := DB.Where("user_id = ? AND status = ? AND end_time > ?", userId, "active", now).
+		Order("end_time asc, id asc").
+		Find(&subs).Error; err != nil {
+		// On DB error, do NOT block the request. Pre-consume path will catch it.
+		return nil
+	}
+	if len(subs) == 0 {
+		return nil
+	}
+	for _, sub := range subs {
+		plan, err := GetSubscriptionPlanById(sub.PlanId)
+		if err != nil {
+			continue
+		}
+		var allowed bool
+		if sub.AllowedModels != "" {
+			allowed = sub.IsModelAllowed(modelName)
+		} else {
+			allowed = plan.IsModelAllowed(modelName)
+		}
+		if allowed {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w %q", ErrSubscriptionModelNotAllowed, modelName)
 }
 
 // RefundSubscriptionPreConsume is idempotent and refunds pre-consumed subscription quota by requestId.
