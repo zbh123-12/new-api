@@ -1461,14 +1461,11 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			// edits to the plan do not change what the user already paid
 			// for; only fall back to the live plan when the snapshot is
 			// empty (e.g. subscriptions bought before this field existed).
-			var allowedVia string
 			allowed := false
 			if sub.AllowedModels != "" {
 				allowed = sub.IsModelAllowed(modelName)
-				allowedVia = "sub.snapshot"
 			} else {
 				allowed = plan.IsModelAllowed(modelName)
-				allowedVia = "plan.live"
 			}
 			if !allowed {
 				continue

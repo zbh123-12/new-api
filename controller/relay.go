@@ -183,6 +183,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			}
 			// Other errors are DB issues — log but DO NOT block the request.
 			logger.LogError(c, "subscription model check failed: "+subFixErr.Error())
+		}
 	} else {
 		newAPIError = service.PreConsumeBilling(c, priceData.QuotaToPreConsume, relayInfo)
 		if newAPIError != nil {

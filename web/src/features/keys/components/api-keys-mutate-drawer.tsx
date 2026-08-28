@@ -107,6 +107,7 @@ export function ApiKeysMutateDrawer({
   const currentRowId = currentRow?.id
   const { triggerRefresh } = useApiKeys()
   const { status, loading: statusLoading } = useStatus()
+  const isAdmin = useIsAdmin()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [initializedTarget, setInitializedTarget] = useState<string | null>(
@@ -206,8 +207,6 @@ export function ApiKeysMutateDrawer({
     () => getApiKeyFormSchema(t, maxAutoGroups),
     [t, maxAutoGroups]
   )
-
-  const isAdmin = useIsAdmin()
 
   const form = useForm<ApiKeyFormValues>({
     resolver: zodResolver(schema),
