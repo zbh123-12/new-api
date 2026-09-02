@@ -89,6 +89,11 @@ const (
 	// 订阅存在但不允许请求的模型。硬封锁——不应回退到钱包，
 	// 即使用户钱包有余额也直接 403。
 	ErrorCodeSubscriptionModelNotAllowed  ErrorCode = "subscription_model_not_allowed"
+
+	// ErrorCodeSubscriptionWindowLimitExceeded: per-plan short-window (5h/weekly)
+	// request-count limit reached, mirrors MiniMax Token Plan semantics. Caller MUST
+	// return HTTP 429 with rate_limit=true.
+	ErrorCodeSubscriptionWindowLimitExceeded ErrorCode = "subscription_window_limit_exceeded"
 )
 
 type NewAPIError struct {

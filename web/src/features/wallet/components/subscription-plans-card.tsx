@@ -52,6 +52,7 @@ import {
 } from '@/features/subscriptions/api'
 import { SubscriptionPurchaseDialog } from '@/features/subscriptions/components/dialogs/subscription-purchase-dialog'
 import { formatDuration, formatResetPeriod } from '@/features/subscriptions/lib'
+import { SubscriptionWindowMeters } from './subscription-window-meters'
 import type {
   PlanRecord,
   UserSubscriptionRecord,
@@ -507,6 +508,9 @@ export function SubscriptionPlansCard({
                       {totalAmount > 0 && isActive && (
                         <Progress value={usagePercent} className='mt-2 h-1.5' />
                       )}
+                      {(sub.window_limit_5h || sub.window_limit_weekly) ? (
+                        <SubscriptionWindowMeters sub={sub} t={t} />
+                      ) : null}
                     </div>
                   )
                 })}

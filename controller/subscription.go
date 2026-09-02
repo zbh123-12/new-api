@@ -327,7 +327,12 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 			"quota_reset_period":         req.Plan.QuotaResetPeriod,
 			"quota_reset_custom_seconds": req.Plan.QuotaResetCustomSeconds,
 			"allowed_models":             sanitizePlanAllowedModels(req.Plan.AllowedModels),
-			"updated_at":                 common.GetTimestamp(),
+			// Short-window request-count limits (5h / weekly, MiniMax Token Plan style)
+			"limit_count_5h":                     req.Plan.LimitCount5Hour,
+			"limit_count_weekly":                 req.Plan.LimitCountWeekly,
+			"limit_count_5h_window_seconds":      req.Plan.LimitCount5hWindowSeconds,
+			"limit_count_weekly_window_seconds": req.Plan.LimitCountWeeklyWindowSeconds,
+			"updated_at":                         common.GetTimestamp(),
 		}
 		if req.Plan.AllowBalancePay != nil {
 			updateMap["allow_balance_pay"] = *req.Plan.AllowBalancePay

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -33,6 +34,12 @@ const (
 	SubscriptionResetCustom  = "custom"
 )
 
+// Subscription short-window limit windows (mirrors MiniMax Token Plan style).
+const (
+	SubWindow5HourSeconds  = 5 * 3600      // 18000
+	SubWindowWeeklySeconds = 7 * 24 * 3600 // 604800
+)
+
 var (
 	ErrSubscriptionOrderNotFound      = errors.New("subscription order not found")
 	ErrSubscriptionOrderStatusInvalid = errors.New("subscription order status invalid")
@@ -40,6 +47,9 @@ var (
 	// but none of them cover the requested model. This is a HARD block: callers MUST
 	// return 403 instead of falling back to wallet. Use errors.Is to detect.
 	ErrSubscriptionModelNotAllowed = errors.New("subscription does not cover model")
+	// ErrSubscriptionWindowLimitExceeded: the user has reached the per-plan request-count
+	// limit for a short window (5h or weekly). Callers MUST return HTTP 429. Use errors.Is.
+	ErrSubscriptionWindowLimitExceeded = errors.New("subscription window limit exceeded")
 )
 
 const (
@@ -188,6 +198,14 @@ type SubscriptionPlan struct {
 	// Quota reset period for plan
 	QuotaResetPeriod        string `json:"quota_reset_period" gorm:"type:varchar(16);default:'never'"`
 	QuotaResetCustomSeconds int64  `json:"quota_reset_custom_seconds" gorm:"type:bigint;default:0"`
+
+	// Short-window request-count limits (MiniMax Token Plan style: 5h + weekly).
+	// 0 = unlimited for that window. Counts are tracked in Redis under
+	// sub:rl:{5h|weekly}:{user_id}:{plan_id} with TTL = window_seconds.
+	LimitCount5Hour         int64 `json:"limit_count_5h" gorm:"type:bigint;not null;default:0"`
+	LimitCountWeekly        int64 `json:"limit_count_weekly" gorm:"type:bigint;not null;default:0"`
+	LimitCount5hWindowSeconds     int64 `json:"limit_count_5h_window_seconds" gorm:"type:bigint;not null;default:18000"`
+	LimitCountWeeklyWindowSeconds int64 `json:"limit_count_weekly_window_seconds" gorm:"type:bigint;not null;default:604800"`
 
 	// AllowedModels is a comma-separated allow-list of model names that this
 	// subscription grants access to. Empty means "no restriction" — all models
@@ -343,6 +361,15 @@ func (s *UserSubscription) IsModelAllowed(modelName string) bool {
 
 type SubscriptionSummary struct {
 	Subscription *UserSubscription `json:"subscription"`
+	// Plan is the associated SubscriptionPlan denormalized for client convenience.
+	Plan *SubscriptionPlan `json:"plan,omitempty"`
+	// WindowLimit5h / WindowUsage5h are the per-plan 5-hour request-count limit
+	// and how many requests have been counted in the current 5h window.
+	// Limit=0 means unlimited.
+	WindowLimit5h   int64 `json:"window_limit_5h"`
+	WindowUsage5h   int64 `json:"window_usage_5h"`
+	WindowLimitWeek int64 `json:"window_limit_weekly"`
+	WindowUsageWeek int64 `json:"window_usage_weekly"`
 }
 
 type SubscriptionResetResult struct {
@@ -1021,12 +1048,56 @@ func buildSubscriptionSummaries(subs []UserSubscription) []SubscriptionSummary {
 	if len(subs) == 0 {
 		return []SubscriptionSummary{}
 	}
+	// Batch-fetch plans and Redis counters for all subscriptions in O(1) round-trips.
 	result := make([]SubscriptionSummary, 0, len(subs))
+	planCache := make(map[int]SubscriptionPlan, len(subs))
 	for _, sub := range subs {
 		subCopy := sub
-		result = append(result, SubscriptionSummary{
+		entry := SubscriptionSummary{
 			Subscription: &subCopy,
-		})
+		}
+		// Pull the plan (cached in-process via GetSubscriptionPlanById).
+		if plan, err := GetSubscriptionPlanById(subCopy.PlanId); err == nil && plan != nil {
+			planCache[plan.Id] = *plan
+			entry.Plan = plan
+			entry.WindowLimit5h = plan.LimitCount5Hour
+			entry.WindowLimitWeek = plan.LimitCountWeekly
+		}
+		result = append(result, entry)
+	}
+	// Batch-read the Redis window counters (best-effort, fail-open).
+	if common.RedisEnabled && common.RDB != nil {
+		keys := make([]string, 0, len(result)*2)
+		for _, e := range result {
+			if e.Subscription == nil {
+				continue
+			}
+			keys = append(keys,
+				subscriptionWindowKey("5h", e.Subscription.UserId, e.Subscription.PlanId),
+				subscriptionWindowKey("weekly", e.Subscription.UserId, e.Subscription.PlanId),
+			)
+		}
+		if len(keys) > 0 {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			vals, err := common.RDB.MGet(ctx, keys...).Result()
+			if err == nil {
+				for i := 0; i < len(result); i++ {
+					// index = i*2 (5h) and i*2+1 (weekly)
+					var v5h, vWeek interface{} = vals[i*2], vals[i*2+1]
+					if s, ok := v5h.(string); ok {
+						if n, perr := strconv.ParseInt(s, 10, 64); perr == nil {
+							result[i].WindowUsage5h = n
+						}
+					}
+					if s, ok := vWeek.(string); ok {
+						if n, perr := strconv.ParseInt(s, 10, 64); perr == nil {
+							result[i].WindowUsageWeek = n
+						}
+					}
+				}
+			}
+		}
 	}
 	return result
 }
@@ -1474,6 +1545,11 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			if err := maybeResetUserSubscriptionWithPlanTx(tx, &sub, plan, now); err != nil {
 				return err
 			}
+			// Short-window limit (Redis 5h / weekly counter). Atomic with the pre-consume
+			// below: exceeded => return BEFORE creating the pre-consume row.
+			if err := CheckSubscriptionWindowLimits(userId, plan); err != nil {
+				return err
+			}
 			usedBefore := sub.AmountUsed
 			if sub.AmountTotal > 0 {
 				remain := sub.AmountTotal - usedBefore
@@ -1703,4 +1779,96 @@ func PostConsumeUserSubscriptionDelta(userSubscriptionId int, delta int64) error
 		sub.AmountUsed = newUsed
 		return tx.Save(&sub).Error
 	})
+}
+
+
+// ----------------------------------------------------------------------------
+// Short-window request-count limits (5h / weekly). Mirrors MiniMax Token Plan
+// style: each successful pre-consume increments the counter, exceeding it
+// returns ErrSubscriptionWindowLimitExceeded (callers return HTTP 429).
+// Counters live in Redis: sub:rl:5h:{user_id}:{plan_id} with TTL = window.
+// Redis unavailable => fail-open (allow + log warning).
+// ----------------------------------------------------------------------------
+
+// subscriptionWindowKey returns the Redis counter key for (window, userId, planId).
+func subscriptionWindowKey(window string, userId, planId int) string {
+	return fmt.Sprintf("sub:rl:%s:%d:%d", window, userId, planId)
+}
+
+// subscriptionWindowCount increments the Redis counter for the window and returns
+// the count after increment. If this is the first INCR (count == 1) the TTL is set.
+// Returns (count, ok). If Redis is unavailable, ok=false and caller should fail open.
+func subscriptionWindowCount(window string, userId, planId int, ttlSeconds int64) (int64, bool) {
+	if !common.RedisEnabled || common.RDB == nil {
+		return 0, false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	key := subscriptionWindowKey(window, userId, planId)
+	pipe := common.RDB.Pipeline()
+	incr := pipe.Incr(ctx, key)
+	pipe.Expire(ctx, key, time.Duration(ttlSeconds)*time.Second)
+	if _, err := pipe.Exec(ctx); err != nil {
+		common.SysLog(fmt.Sprintf("subscription window limit redis pipeline failed: %s", err.Error()))
+		return 0, false
+	}
+	return incr.Val(), true
+}
+
+// subscriptionWindowDecrement rolls back the INCR when the limit is exceeded so the
+// counter does not overshoot (best-effort).
+func subscriptionWindowDecrement(window string, userId, planId int) {
+	if !common.RedisEnabled || common.RDB == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if _, err := common.RDB.Decr(ctx, subscriptionWindowKey(window, userId, planId)).Result(); err != nil {
+		common.SysLog(fmt.Sprintf("subscription window limit redis decr failed: %s", err.Error()))
+	}
+}
+
+// CheckSubscriptionWindowLimits enforces the per-plan request-count limits for both
+// the 5h and weekly windows. It increments Redis counters atomically and returns
+// ErrSubscriptionWindowLimitExceeded if either window is full. If Redis is
+// unavailable the check is skipped (fail open) — only logs a warning.
+func CheckSubscriptionWindowLimits(userId int, plan *SubscriptionPlan) error {
+	if plan == nil || userId <= 0 {
+		return nil
+	}
+	if plan.LimitCount5Hour <= 0 && plan.LimitCountWeekly <= 0 {
+		return nil
+	}
+ 
+	check := func(window string, limit, ttlSeconds int64) error {
+		if limit <= 0 {
+			return nil
+		}
+		if ttlSeconds <= 0 {
+			if window == "weekly" {
+				ttlSeconds = SubWindowWeeklySeconds
+			} else {
+				ttlSeconds = SubWindow5HourSeconds
+			}
+		}
+		count, ok := subscriptionWindowCount(window, userId, plan.Id, ttlSeconds)
+		if !ok {
+			return nil // fail open
+		}
+		if count > limit {
+			subscriptionWindowDecrement(window, userId, plan.Id)
+			return fmt.Errorf("%w: %s limit=%d used=%d", ErrSubscriptionWindowLimitExceeded, window, limit, count-1)
+		}
+		return nil
+	}
+
+	if err := check("5h", plan.LimitCount5Hour, plan.LimitCount5hWindowSeconds); err != nil {
+		return err
+	}
+	if err := check("weekly", plan.LimitCountWeekly, plan.LimitCountWeeklyWindowSeconds); err != nil {
+		// roll back the 5h increment so the failed request does not burn both quotas
+		subscriptionWindowDecrement("5h", userId, plan.Id)
+		return err
+	}
+	return nil
 }

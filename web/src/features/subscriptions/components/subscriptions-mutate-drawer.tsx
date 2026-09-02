@@ -414,6 +414,67 @@ export function SubscriptionsMutateDrawer({
               <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
                 <FormField
                   control={form.control}
+                  name='limit_count_5h'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('5-Hour Call Limit')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type='number'
+                          min={0}
+                          step={1}
+                          placeholder={t('e.g. 1500 (0 = unlimited)')}
+                          onChange={(e) =>
+                            field.onChange(
+                              Number.parseInt(e.target.value, 10) || 0
+                            )
+                          }
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        {t(
+                          'Calls allowed per 5h rolling window (MiniMax Token Plan style). 0 = unlimited.'
+                        )}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name='limit_count_weekly'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('Weekly Call Limit')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type='number'
+                          min={0}
+                          step={1}
+                          placeholder={t('e.g. 15000 (0 = unlimited)')}
+                          onChange={(e) =>
+                            field.onChange(
+                              Number.parseInt(e.target.value, 10) || 0
+                            )
+                          }
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        {t(
+                          'Calls allowed per 7-day rolling window (MiniMax Token Plan style). 0 = unlimited.'
+                        )}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
+                <FormField
+                  control={form.control}
                   name='upgrade_group'
                   render={({ field }) => (
                     <FormItem>

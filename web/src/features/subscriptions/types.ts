@@ -75,6 +75,13 @@ export type UserSubscription = z.infer<typeof userSubscriptionSchema>
 
 export interface UserSubscriptionRecord {
   subscription: UserSubscription
+  // MiniMax Token Plan style: per-plan short-window request-count limits and
+  // how many the user has consumed in the current window. limit=0 = unlimited.
+  plan?: SubscriptionPlan
+  window_limit_5h?: number
+  window_usage_5h?: number
+  window_limit_weekly?: number
+  window_usage_weekly?: number
 }
 
 // ============================================================================
