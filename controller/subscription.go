@@ -327,7 +327,7 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 			"quota_reset_period":         req.Plan.QuotaResetPeriod,
 			"quota_reset_custom_seconds": req.Plan.QuotaResetCustomSeconds,
 			"allowed_models":             sanitizePlanAllowedModels(req.Plan.AllowedModels),
-			// Short-window request-count limits (5h / weekly, MiniMax Token Plan style)
+			// Short-window request-count limits (5h / weekly)
 			"limit_count_5h":                     req.Plan.LimitCount5Hour,
 			"limit_count_weekly":                 req.Plan.LimitCountWeekly,
 			"limit_count_5h_window_seconds":      req.Plan.LimitCount5hWindowSeconds,

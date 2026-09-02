@@ -237,7 +237,7 @@ func (s *BillingSession) preConsume(c *gin.Context, quota int) *types.NewAPIErro
 				types.ErrOptionWithNoRecordErrorLog(),
 			)
 		}
-		// Short-window rate-limit block (5h / weekly, MiniMax Token Plan semantics).
+		// Short-window rate-limit block (5h / weekly).
 		// Returned as HTTP 429 — the user must wait for the window to reset.
 		if errors.Is(err, model.ErrSubscriptionWindowLimitExceeded) {
 			return types.NewErrorWithStatusCode(

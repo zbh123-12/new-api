@@ -91,7 +91,7 @@ const (
 	ErrorCodeSubscriptionModelNotAllowed  ErrorCode = "subscription_model_not_allowed"
 
 	// ErrorCodeSubscriptionWindowLimitExceeded: per-plan short-window (5h/weekly)
-	// request-count limit reached, mirrors MiniMax Token Plan semantics. Caller MUST
+	// request-count limit reached. Caller MUST
 	// return HTTP 429 with rate_limit=true.
 	ErrorCodeSubscriptionWindowLimitExceeded ErrorCode = "subscription_window_limit_exceeded"
 )

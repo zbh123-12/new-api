@@ -13,7 +13,7 @@ import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 
 /**
- * MiniMax Token Plan style short-window request-count meters.
+ * Short-window request-count meters.
  * Renders one row per non-zero limit (5h, weekly). Hidden entirely when
  * neither limit is configured.
  */

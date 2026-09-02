@@ -34,7 +34,7 @@ const (
 	SubscriptionResetCustom  = "custom"
 )
 
-// Subscription short-window limit windows (mirrors MiniMax Token Plan style).
+// Subscription short-window limit windows.
 const (
 	SubWindow5HourSeconds  = 5 * 3600      // 18000
 	SubWindowWeeklySeconds = 7 * 24 * 3600 // 604800
@@ -199,7 +199,7 @@ type SubscriptionPlan struct {
 	QuotaResetPeriod        string `json:"quota_reset_period" gorm:"type:varchar(16);default:'never'"`
 	QuotaResetCustomSeconds int64  `json:"quota_reset_custom_seconds" gorm:"type:bigint;default:0"`
 
-	// Short-window request-count limits (MiniMax Token Plan style: 5h + weekly).
+	// Short-window request-count limits (5h + weekly).
 	// 0 = unlimited for that window. Counts are tracked in Redis under
 	// sub:rl:{5h|weekly}:{user_id}:{plan_id} with TTL = window_seconds.
 	LimitCount5Hour         int64 `json:"limit_count_5h" gorm:"type:bigint;not null;default:0"`
@@ -1783,7 +1783,7 @@ func PostConsumeUserSubscriptionDelta(userSubscriptionId int, delta int64) error
 
 
 // ----------------------------------------------------------------------------
-// Short-window request-count limits (5h / weekly). Mirrors MiniMax Token Plan
+// Short-window request-count limits (5h / weekly).
 // style: each successful pre-consume increments the counter, exceeding it
 // returns ErrSubscriptionWindowLimitExceeded (callers return HTTP 429).
 // Counters live in Redis: sub:rl:5h:{user_id}:{plan_id} with TTL = window.

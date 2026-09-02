@@ -434,7 +434,7 @@ export function SubscriptionsMutateDrawer({
                       </FormControl>
                       <FormDescription>
                         {t(
-                          'Calls allowed per 5h rolling window (MiniMax Token Plan style). 0 = unlimited.'
+                          'Calls allowed per 5h rolling window. 0 = unlimited.'
                         )}
                       </FormDescription>
                       <FormMessage />
@@ -463,7 +463,7 @@ export function SubscriptionsMutateDrawer({
                       </FormControl>
                       <FormDescription>
                         {t(
-                          'Calls allowed per 7-day rolling window (MiniMax Token Plan style). 0 = unlimited.'
+                          'Calls allowed per 7-day rolling window. 0 = unlimited.'
                         )}
                       </FormDescription>
                       <FormMessage />
