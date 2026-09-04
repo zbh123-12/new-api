@@ -208,11 +208,27 @@ try {
 }
 
 
-# --- Step 3: Login as test user ------------------------------------------
+# --- Step 3: Login as test user (auto-bootstrap if missing) ------------
 $script:stepNum++
 Step-Name ('Login as test user ' + $TestUser)
+# Try login; if it fails, register and grant starting quota
+$userLogin = $null
 try {
-    $userLogin  = Login-User -User $TestUser -Pass $TestUserPassword
+    $userLogin = Login-User -User $TestUser -Pass $TestUserPassword
+} catch {
+    Write-Host ('  Test user "' + $TestUser + '"' + ' does not exist, registering...') -ForegroundColor Yellow
+    try {
+        $registerBody = @{ username = $TestUser; password = $TestUserPassword } | ConvertTo-Json
+        $null = Invoke-WebRequest -Method POST -Uri ($BaseUrl + '/api/user/register?turnstile=') -ContentType 'application/json' -Body $registerBody -UseBasicParsing
+        Write-Host '  Registered.' -ForegroundColor Yellow
+    } catch { }
+    try {
+        docker compose exec -T postgres psql -U root -d new-api -c ("UPDATE users SET quota = 10000000 WHERE username = '" + $TestUser + "';") 2>$null | Out-Null
+    } catch { }
+    Start-Sleep -Milliseconds 500
+    $userLogin = Login-User -User $TestUser -Pass $TestUserPassword
+}
+try {
     $userToken  = $userLogin.access_token
     $testUserId = [int]$userLogin.user.id
     Info ('test user id = ' + $testUserId)
