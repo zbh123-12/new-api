@@ -114,6 +114,7 @@ func GetTopUpInfo(c *gin.Context) {
 		"creem_products":          setting.CreemProducts,
 		"pay_methods":             payMethods,
 		"min_topup":               operation_setting.MinTopUp,
+		"max_topup":               getMaxTopUpAmount(),
 		"stripe_min_topup":        setting.StripeMinTopUp,
 		"waffo_min_topup":         setting.WaffoMinTopUp,
 		"waffo_pancake_min_topup": setting.WaffoPancakeMinTopUp,
@@ -199,6 +200,11 @@ func getTopUpQuota(amount int64) (int, error) {
 }
 
 func getMaxTopUpAmount() int64 {
+	// Prefer the admin-configured MaxTopUp option (in display currency)
+	if configured := operation_setting.GetMaxTopUp(); configured > 0 {
+		return configured
+	}
+	// Fallback: compute from int32 quota column max
 	if common.QuotaPerUnit <= 0 {
 		return 0
 	}
