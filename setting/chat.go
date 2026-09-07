@@ -17,10 +17,10 @@ var Chats = []map[string]string{
 		"AionUI": "aionui://provider/add?v=1&data={aionuiConfig}",
 	},
 	{
-		"流畅阅读": "fluentread",
+		"流畅阅读": "https://fluentreader.com/",
 	},
 	{
-		"CC Switch": "ccswitch",
+		"CC Switch": "https://ccswitch.io/",
 	},
 	{
 		"DeepChat": "deepchat://provider/install?v=1&data={deepchatConfig}",
