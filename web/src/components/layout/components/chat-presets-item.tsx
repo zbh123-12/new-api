@@ -215,7 +215,10 @@ export function ChatPresetsItem({ item }: { item: NavChatPresets }) {
 
       if (typeof window === 'undefined') return
 
-      window.open(url, '_blank', 'noopener')
+      // Custom protocols (e.g. cherrystudio://) are OS-handled, not browser-rendered.
+      // Using location.href lets the OS intercept and launch the desktop app;
+      // using window.open leaves a blank tab because the browser can't render the protocol.
+      window.location.href = url
       setOpenMobile(false)
     },
     [serverAddress, setOpenMobile, t]
