@@ -128,6 +128,8 @@ export interface TopupInfo {
   pay_methods: PaymentMethod[]
   /** Minimum topup amount for online topup */
   min_topup: number
+  /** Maximum topup amount (system maximum, in display currency) */
+  max_topup?: number
   /** Minimum topup amount for Stripe */
   stripe_min_topup: number
   /** Preset amount options */
