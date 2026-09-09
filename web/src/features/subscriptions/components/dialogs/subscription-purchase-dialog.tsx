@@ -36,6 +36,7 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { formatRawTokensWithUnit } from '@/lib/format'
+import { formatCurrencyFromUSD } from '@/lib/currency'
 import { DEFAULT_CURRENCY_CONFIG } from '@/stores/system-config-store'
 
 import {
@@ -332,12 +333,12 @@ export function SubscriptionPurchaseDialog(props: Props) {
 
         <div className='flex flex-col gap-2 rounded-md border p-3'>
           <div className='flex items-center justify-between gap-2 text-xs'>
-            <span className='text-muted-foreground'>{t('Required')}</span>
-            <span>{formatRawTokensWithUnit(balanceCost, t('tokens'), t('Unlimited'))}</span>
+            <span className='text-muted-foreground'>{t('This payment will cost')}</span>
+            <span className='font-medium'>{formatCurrencyFromUSD(balanceCost / quotaPerUnit)}</span>
           </div>
           <div className='flex items-center justify-between gap-2 text-xs'>
-            <span className='text-muted-foreground'>{t('Available')}</span>
-            <span>{formatRawTokensWithUnit(userQuota, t('tokens'), t('Unlimited'))}</span>
+            <span className='text-muted-foreground'>{t('Current Balance')}</span>
+            <span className='font-medium'>{formatCurrencyFromUSD(userQuota / quotaPerUnit)}</span>
           </div>
           {!allowBalancePay ? (
             <Alert variant='destructive'>
@@ -348,7 +349,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
           ) : (
             insufficientBalance && (
               <Alert variant='destructive'>
-                <AlertDescription>{t('Insufficient balance')}</AlertDescription>
+                <AlertDescription>{t('Insufficient wallet balance')}</AlertDescription>
               </Alert>
             )
           )}
@@ -359,7 +360,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
               paying || limitReached || !allowBalancePay || insufficientBalance
             }
           >
-            {t('Pay with Balance')}
+            {t('Pay with Wallet Balance')}
           </Button>
         </div>
 
