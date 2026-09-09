@@ -1,0 +1,76 @@
+/* Copyright (C) 2023-2026 QuantumNous
+ * ... (license) ...
+ */
+import { createFileRoute } from '@tanstack/react-router'
+import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
+
+import { SectionPageLayout } from '@/components/layout'
+import { useAuthStore } from '@/stores/auth-store'
+
+import { SubscriptionPlansCard } from '@/features/wallet/components/subscription-plans-card'
+
+import type { TopupInfo } from '@/features/wallet/types'
+import type { UserSubscriptionRecord } from '@/features/subscriptions/types'
+
+export const Route = createFileRoute('/_authenticated/plans/')({
+  component: PlansPage,
+})
+
+function PlansPage() {
+  const { t } = useTranslation()
+  const authUser = useAuthStore((s) => s.auth.user)
+  const [topupInfo, setTopupInfo] = useState<TopupInfo | null>(null)
+  const [selfSub, setSelfSub] = useState<UserSubscriptionRecord | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await fetch('/api/user/topup/info?user_id=' + (authUser?.id || 1), { credentials: 'include' })
+        if (!cancelled && res.ok) {
+          const data = await res.json()
+          setTopupInfo(data?.data || null)
+        }
+      } catch {}
+      try {
+        const r2 = await fetch('/api/subscription/self', { credentials: 'include' })
+        if (!cancelled && r2.ok) {
+          const d2 = await r2.json()
+          setSelfSub(d2?.data || null)
+        }
+      } catch {}
+    }
+    void load()
+    return () => { cancelled = true }
+  }, [authUser?.id, refreshKey])
+
+  return (
+    <SectionPageLayout>
+      <SectionPageLayout.Title>{t('Subscription Plans')}</SectionPageLayout.Title>
+      <SectionPageLayout.Description>
+        {t('Simple, transparent pricing that scales with you')}
+      </SectionPageLayout.Description>
+      <SectionPageLayout.Content>
+        <div className='mx-auto flex w-full max-w-7xl flex-col gap-6'>
+          {selfSub?.subscription && (
+            <div className='bg-muted/30 border-primary/30 rounded-xl border p-4'>
+              <div className='text-muted-foreground text-xs uppercase tracking-wider'>你的当前订阅</div>
+              <div className='mt-1 text-lg font-semibold'>{selfSub.subscription.plan?.title || ''}</div>
+              <div className='text-muted-foreground mt-1 text-sm'>
+                剩余 {((Number(selfSub.subscription.amount_total || 0) - Number(selfSub.subscription.amount_used || 0)) / 500000).toFixed(2)} CNY
+              </div>
+            </div>
+          )}
+          <SubscriptionPlansCard
+            key={refreshKey}
+            topupInfo={topupInfo}
+            userQuota={authUser?.quota}
+            onPurchaseSuccess={() => setRefreshKey((k) => k + 1)}
+          />
+        </div>
+      </SectionPageLayout.Content>
+    </SectionPageLayout>
+  )
+}
