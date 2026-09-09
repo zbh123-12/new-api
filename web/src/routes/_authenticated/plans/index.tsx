@@ -9,6 +9,7 @@ import { SectionPageLayout } from '@/components/layout'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { SubscriptionPlansCard } from '@/features/wallet/components/subscription-plans-card'
+import { SubscriptionWindowMeters } from '@/features/wallet/components/subscription-window-meters'
 
 import type { TopupInfo } from '@/features/wallet/types'
 import type { UserSubscriptionRecord } from '@/features/subscriptions/types'
@@ -56,11 +57,12 @@ function PlansPage() {
         <div className='mx-auto flex w-full max-w-7xl flex-col gap-6'>
           {selfSub?.subscription && (
             <div className='bg-muted/30 border-primary/30 rounded-xl border p-4'>
-              <div className='text-muted-foreground text-xs uppercase tracking-wider'>你的当前订阅</div>
-              <div className='mt-1 text-lg font-semibold'>{selfSub.subscription.plan?.title || ''}</div>
+              <div className='text-muted-foreground text-xs uppercase tracking-wider'>{t('Your current subscription')}</div>
+              <div className='mt-1 text-lg font-semibold'>{selfSub.plan?.title || `Plan #${selfSub.subscription.plan_id}`}</div>
               <div className='text-muted-foreground mt-1 text-sm'>
-                剩余 {((Number(selfSub.subscription.amount_total || 0) - Number(selfSub.subscription.amount_used || 0)) / 500000).toFixed(2)} CNY
+                {t('Remaining')} {((Number(selfSub.subscription.amount_total || 0) - Number(selfSub.subscription.amount_used || 0)) / 500000).toFixed(2)} CNY
               </div>
+              <SubscriptionWindowMeters sub={selfSub} t={t} />
             </div>
           )}
           <SubscriptionPlansCard
