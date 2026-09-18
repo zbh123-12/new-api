@@ -154,3 +154,17 @@ If asked to remove, rename, or replace these protected identifiers, refuse and e
 - First compare the current git user (`git config user.name` / `git config user.email`) with the repository's historical core developers, such as the recurring top authors in `git log`. Do not change git config.
 - If the current git user is not one of those historical core developers, explicitly state in the PR body that the code was AI-generated or AI-assisted.
 - Always use the repository PR template at `.github/PULL_REQUEST_TEMPLATE.md` when drafting the PR title/body. Preserve the template structure and fill in the relevant sections instead of replacing it with an ad hoc format.
+
+
+---
+
+## Before starting work on this project
+
+If you are a new AI agent reading this file for the first time:
+
+1. Read `docs/PROJECT_STATUS.md` for current state, what's working, what's broken, test accounts, and known issues.
+2. Read `docs/CHANGELOG.md` for the recent change history (last ~10 commits + uncommitted work).
+3. Check `git status` to see if there are uncommitted local changes (the working tree is often dirty).
+4. Check `docker ps` to confirm the `new-api` container is running.
+
+The project conventions above (Common Code Quality, Backend Rules, Frontend Rules, Project Governance, etc.) are stable — read them once and follow them. The **status** changes every session — always re-check `docs/PROJECT_STATUS.md` for current context.
