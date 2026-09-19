@@ -11,7 +11,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import { SubscriptionPlansCard } from '@/features/wallet/components/subscription-plans-card'
 import { SubscriptionWindowMeters } from '@/features/wallet/components/subscription-window-meters'
 
-import type { TopupInfo } from '@/features/wallet/types'
+import { useTopupInfo } from '@/features/wallet/hooks/use-topup-info'
 import type { UserSubscriptionRecord } from '@/features/subscriptions/types'
 
 export const Route = createFileRoute('/_authenticated/plans/')({
@@ -21,20 +21,13 @@ export const Route = createFileRoute('/_authenticated/plans/')({
 function PlansPage() {
   const { t } = useTranslation()
   const authUser = useAuthStore((s) => s.auth.user)
-  const [topupInfo, setTopupInfo] = useState<TopupInfo | null>(null)
+  const { topupInfo } = useTopupInfo()
   const [selfSub, setSelfSub] = useState<UserSubscriptionRecord | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
     const load = async () => {
-      try {
-        const res = await fetch('/api/user/topup/info?user_id=' + (authUser?.id || 1), { credentials: 'include' })
-        if (!cancelled && res.ok) {
-          const data = await res.json()
-          setTopupInfo(data?.data || null)
-        }
-      } catch {}
       try {
         const r2 = await fetch('/api/subscription/self', { credentials: 'include' })
         if (!cancelled && r2.ok) {

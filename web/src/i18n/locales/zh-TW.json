@@ -2085,7 +2085,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "相關項目",
     "footer.defaultCopyright": "版權所有。",
-    "footer.new\u0061pi.projectAttributionSuffix": "版權所有，由項目貢獻者設計與開發。",
+    "footer.newapi.projectAttributionSuffix": "版權所有，由項目貢獻者設計與開發。",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "對於 2025 年 5 月 10 日之後新增的渠道，在部署時無需從模型名稱中移除 \".\"",
     "for light personal use": "適合輕度個人使用",
     "for power users and teams": "適合高強度用戶和團隊",
@@ -5366,6 +5366,8 @@
     "Zhipu": "智譜",
     "Zhipu V4": "智譜 V4",
     "Zoom": "縮放",
-    "Your current subscription": "你目前的訂閱"
+    "Your current subscription": "你目前的訂閱",
+    "Payment not configured": "未配置付款方式",
+    "Plans": "訂閱方案"
   }
 }

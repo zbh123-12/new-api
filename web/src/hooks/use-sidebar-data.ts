@@ -29,6 +29,7 @@ import {
   Radio,
   ServerCog,
   Settings,
+  Sparkles,
   Ticket,
   User,
   Users,
@@ -107,6 +108,11 @@ export function useSidebarData(): SidebarData {
             title: t('Wallet'),
             url: '/wallet',
             icon: Wallet,
+          },
+          {
+            title: t('Plans'),
+            url: '/plans',
+            icon: Sparkles,
           },
           {
             title: t('Profile'),

@@ -116,7 +116,7 @@ export function SubscriptionPlansCard({
       const res = await fetch('/api/subscription/plans', { credentials: 'include' })
       if (res.ok) {
         const data = await res.json()
-        setPlans(data?.data || [])
+        setPlans([...(data?.data || [])].sort((a, b) => Number(a.plan?.price_amount || 0) - Number(b.plan?.price_amount || 0)))
         onAvailabilityChange?.((data?.data || []).length > 0)
       }
     } catch (e) {
@@ -172,7 +172,7 @@ export function SubscriptionPlansCard({
   if (plans.length === 0) {
     return (
       <TitledCard title={t('Subscription Plans')} icon={<Sparkles className='h-4 w-4' />}>
-        <p className='text-muted-foreground text-sm'>{t('No plans available.')}</p>
+        <p className='text-muted-foreground text-sm'>{t('No plans available')}</p>
       </TitledCard>
     )
   }
@@ -180,7 +180,7 @@ export function SubscriptionPlansCard({
   return (
     <TitledCard
       title={t('Subscription Plans')}
-      description={t('Simple, transparent pricing that scales with you')}
+      description={t('Simple, transparent pricing')}
       icon={<Sparkles className='h-4 w-4' />}
       disableHoverEffect
     >
@@ -191,7 +191,7 @@ export function SubscriptionPlansCard({
             {t('Choose your plan')}
           </h2>
           <p className='text-muted-foreground mt-1 text-sm'>
-            {t('Simple, transparent pricing that scales with you')}
+            {t('Simple, transparent pricing')}
           </p>
         </div>
         <div className='inline-flex items-center rounded-full border bg-muted/50 p-1 text-sm'>

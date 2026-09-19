@@ -609,7 +609,7 @@ export const ModelPricingEditorPanel = forwardRef<
                               <FieldLabel>{t('Fixed price')}</FieldLabel>
                               <FormControl>
                                 <InputGroup>
-                                  <InputGroupAddon>$</InputGroupAddon>
+                                  <InputGroupAddon>¥</InputGroupAddon>
                                   <InputGroupInput
                                     inputMode='decimal'
                                     placeholder='0.01'
