@@ -124,6 +124,27 @@ git log --grep='phase-1.3'
 git revert <sha>
 ```
 
+## Phase 1.4 — 2026-09-20: 空态重做
+
+把 `/plans/current` 无订阅时的空态从「一行文字 + 按钮」升级为 MiniMax 风格
+的信息卡:
+
+- 圆形 Sparkles 图标
+- 大标题: 您还没有生效中的订阅
+- 描述: 选择一个套餐开启更高请求量、专属模型访问与优先支持。可随时取消。
+- 3 个价格小卡(¥49 / ¥119 / ¥469)+ 套餐名
+- 大按钮「浏览套餐」 + 小链接「查看全部功能对比 →」
+
+修改文件:
+  web/src/routes/_authenticated/plans/current.tsx (空态 JSX 重写 + Sparkles 导入)
+  web/src/i18n/locales/{en,zh,zh-TW,fr,ja,ru,vi}.json (6 个新 key)
+
+回退:
+  git log --grep='phase-1.4'
+  git revert <sha>
+
+## Uncommitted
+
 ## Uncommitted
 
 ## Uncommitted

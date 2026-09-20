@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Sparkles } from 'lucide-react'
 
 import { SectionPageLayout } from '@/components/layout'
 import { Button } from '@/components/ui/button'
@@ -101,11 +101,47 @@ function CurrentPlanPage() {
           ) : selfSub ? (
             <SubscriptionStatusCard sub={selfSub} />
           ) : (
-            <div className="bg-card rounded-xl border p-10 text-center">
-              <p className="text-muted-foreground mb-4 text-sm">
-                {t('You have no active subscription.')}
-              </p>
-              <Button render={<Link to="/plans" />}>{t('Browse plans')}</Button>
+            <div className="bg-card space-y-6 rounded-xl border p-8 text-center sm:p-12">
+              <div className="mx-auto max-w-md space-y-3">
+                <div className="bg-muted mx-auto flex h-12 w-12 items-center justify-center rounded-full">
+                  <Sparkles className="text-muted-foreground h-6 w-6" />
+                </div>
+                <h2 className="text-xl font-semibold tracking-tight">
+                  {t('No active subscription yet')}
+                </h2>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  {t(
+                    'Pick a subscription tier to unlock higher request limits, dedicated model access, and priority support. Cancel anytime.',
+                  )}
+                </p>
+              </div>
+
+              <div className="mx-auto grid max-w-2xl gap-3 pt-2 text-left sm:grid-cols-3">
+                <div className="bg-muted/40 rounded-lg p-4">
+                  <div className="text-foreground text-2xl font-bold">¥49</div>
+                  <div className="text-muted-foreground text-xs">{t('Plus · per month')}</div>
+                </div>
+                <div className="bg-muted/40 rounded-lg p-4">
+                  <div className="text-foreground text-2xl font-bold">¥119</div>
+                  <div className="text-muted-foreground text-xs">{t('Max · per month')}</div>
+                </div>
+                <div className="bg-muted/40 rounded-lg p-4">
+                  <div className="text-foreground text-2xl font-bold">¥469</div>
+                  <div className="text-muted-foreground text-xs">{t('Ultra · per month')}</div>
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center gap-2 pt-2">
+                <Button render={<Link to="/plans" />} size="lg">
+                  {t('Browse plans')}
+                </Button>
+                <Link
+                  to="/plans"
+                  className="text-muted-foreground text-xs underline-offset-4 hover:underline"
+                >
+                  {t('Compare all features →')}
+                </Link>
+              </div>
             </div>
           )}
         </div>
