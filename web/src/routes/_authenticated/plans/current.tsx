@@ -36,22 +36,37 @@ function CurrentPlanPage() {
   const [selfSub, setSelfSub] = useState<UserSubscriptionRecord | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Self-sub fetch with retry. After purchase, the backend may need a brief moment
+  // to commit the new subscription row, so a single fetch can race and return empty.
+  // Retry up to 3 times with a 1s gap before falling back to the empty state.
   useEffect(() => {
     let cancelled = false
-    const load = async () => {
-      try {
-        const r = await fetch('/api/subscription/self', { credentials: 'include' })
-        if (cancelled || !r.ok) return
-        const d = await r.json()
-        const subs = d?.data?.subscriptions
-        setSelfSub(Array.isArray(subs) && subs.length > 0 ? subs[0] : null)
-      } catch {
-        // silent
-      } finally {
-        if (!cancelled) setLoading(false)
+    let attempts = 0
+    const tryFetch = async () => {
+      while (attempts < 3 && !cancelled) {
+        try {
+          const r = await fetch('/api/subscription/self', { credentials: 'include' })
+          if (cancelled) return
+          if (r.ok) {
+            const d = await r.json()
+            const subs = d?.data?.subscriptions
+            if (Array.isArray(subs) && subs.length > 0) {
+              setSelfSub(subs[0])
+              setLoading(false)
+              return
+            }
+          }
+        } catch {
+          // silent — retry
+        }
+        attempts++
+        if (attempts < 3 && !cancelled) {
+          await new Promise((r) => setTimeout(r, 1000))
+        }
       }
+      if (!cancelled) setLoading(false)
     }
-    void load()
+    void tryFetch()
     return () => {
       cancelled = true
     }

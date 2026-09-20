@@ -979,6 +979,28 @@ func GetMostRecentActiveSubscription(userId int) (*UserSubscription, error) {
 	return &sub, nil
 }
 
+
+// GetActiveSubscriptionForPlan returns the active subscription (if any) for the
+// given (userId, planId). Used by the balance-pay guard to block duplicate
+// purchases of the same plan tier while a previous subscription is still active.
+func GetActiveSubscriptionForPlan(userId int, planId int) (*UserSubscription, error) {
+	if userId <= 0 || planId <= 0 {
+		return nil, errors.New("invalid userId or planId")
+	}
+	now := common.GetTimestamp()
+	var sub UserSubscription
+	err := DB.Where("user_id = ? AND plan_id = ? AND status = ? AND end_time > ?", userId, planId, "active", now).
+		Order("end_time desc, id desc").
+		First(&sub).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &sub, nil
+}
+
 // GetAllActiveUserSubscriptions returns all active subscriptions for a user.
 func GetAllActiveUserSubscriptions(userId int) ([]SubscriptionSummary, error) {
 	if userId <= 0 {

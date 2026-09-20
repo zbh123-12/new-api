@@ -57,6 +57,48 @@ git revert <sha>                          # 一键回退
   git revert <sha>
 
 
+## Phase 1.2 — 2026-09-20: 重试 + 防重复购买
+
+### 问题 1:跳转后空态
+`/plans/current` 页面 fetch `/api/subscription/self` 改成重试 3 次(1s 间隔),
+处理后端 commit 延迟或 fetch 与 navigate 之间的时序竞争。
+首次失败不报错,继续等下一次。
+
+### 问题 2:用户能重复买同一档
+分两层防护:
+
+**前端(主路径)** `web/src/features/wallet/components/subscription-plans-card.tsx`:
+- 按当前订阅状态动态计算按钮文案:
+  - 无订阅 → "选择 X"
+  - 同档 → 按钮禁用 + "已是当前档位"
+  - 已达最高档 → 按钮禁用 + "已是最高档位"
+  - 高于当前档 → "升级到 X"
+  - 低于当前档 → "降级到 X"
+
+**后端(防绕过)** `controller/subscription.go` + `model/subscription.go`:
+- 新增 `GetActiveSubscriptionForPlan(userId, planId)` 查询当前是否有同档有效订阅
+- `paySubscriptionBalance` handler 在事务外先查,有则返回错误
+- 错误消息走 i18n:`Subscription.DuplicateActivePlan`(en/zh/zh-TW 翻译)
+
+### 新增文件
+- 无
+
+### 修改文件
+- web/src/routes/_authenticated/plans/current.tsx — 重试逻辑
+- web/src/features/wallet/components/subscription-plans-card.tsx — 按钮文案动态化
+- web/src/i18n/locales/{en,zh,zh-TW,fr,ja,ru,vi}.json — 4 个新 key
+- model/subscription.go — GetActiveSubscriptionForPlan helper
+- controller/subscription.go — i18n 导入 + guard 调用
+- i18n/locales/{en,zh-CN,zh-TW}.yaml — Subscription.DuplicateActivePlan 翻译
+
+### 回退命令
+```bash
+git log --grep='phase-1.2'
+git revert <sha>
+```
+
+## Uncommitted
+
 ## Uncommitted
  (working tree dirty, 2026-09-18)
 

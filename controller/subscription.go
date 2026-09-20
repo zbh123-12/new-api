@@ -7,6 +7,8 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+
+	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
@@ -36,7 +38,7 @@ func GetSubscriptionPlans(c *gin.Context) {
 	}
 
 	var plans []model.SubscriptionPlan
-	if err := model.DB.Where("enabled = ?", true).Order("sort_order desc, id desc").Find(&plans).Error; err != nil {
+	if err := model.DB.Where("enabled = ?", true).Order("price_amount asc, sort_order asc, id asc").Find(&plans).Error; err != nil {
 		common.ApiError(c, err)
 		return
 	}
@@ -106,6 +108,16 @@ func SubscriptionRequestBalancePay(c *gin.Context) {
 	var req SubscriptionBalancePayRequest
 	if err := c.ShouldBindJSON(&req); err != nil || req.PlanId <= 0 {
 		common.ApiErrorMsg(c, "参数错误")
+		return
+	}
+
+	// Guard: prevent duplicate purchase of the same plan tier while active.
+	// Frontend also disables the button, but a direct API call would otherwise succeed.
+	if existing, gerr := model.GetActiveSubscriptionForPlan(userId, req.PlanId); gerr != nil {
+		common.ApiError(c, gerr)
+		return
+	} else if existing != nil {
+		common.ApiErrorMsg(c, i18n.T(c, "Subscription.DuplicateActivePlan"))
 		return
 	}
 
