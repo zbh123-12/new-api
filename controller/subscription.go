@@ -54,6 +54,10 @@ func GetSubscriptionPlans(c *gin.Context) {
 
 func GetSubscriptionSelf(c *gin.Context) {
 	userId := c.GetInt("id")
+	// Subscription data is user-specific and changes immediately on purchase.
+	// Prevent the browser (and any intermediary cache) from serving a stale
+	// empty response from another user's previous session.
+	c.Header("Cache-Control", "no-store")
 	settingMap, _ := model.GetUserSetting(userId, false)
 	pref := common.NormalizeBillingPreference(settingMap.BillingPreference)
 

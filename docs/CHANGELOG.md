@@ -143,6 +143,26 @@ git revert <sha>
   git log --grep='phase-1.4'
   git revert <sha>
 
+## Phase 1.5 — 2026-09-20: 修订阅 API 缓存
+
+**问题**: root 后台能看到用户 12345678 有订阅,但前端 `/plans/current` 显示空。
+
+**最可能根因**: SPA 浏览器缓存了 API 响应。
+之前 tester(无订阅)登录时 `/api/subscription/self` 返回空数组,浏览器/HTTP 缓存保留这份
+"空"响应,即使后来 12345678(有 3 个订阅)登录,前端仍可能拿到缓存的旧响应。
+
+**修法**: `/api/subscription/self` 加 `Cache-Control: no-store` 响应头,
+强制前端每次重新拉取,不缓存用户特定数据。
+
+修改:
+  controller/subscription.go (GetSubscriptionSelf handler 顶部加 c.Header("Cache-Control", "no-store"))
+
+回退:
+  git log --grep='phase-1.5'
+  git revert <sha>
+
+## Uncommitted
+
 ## Uncommitted
 
 ## Uncommitted
