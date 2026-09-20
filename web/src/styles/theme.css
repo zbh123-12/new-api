@@ -245,3 +245,14 @@ For commercial licensing, please contact support@quantumnous.com
     var(--background)
   );
 }
+
+/* Subscription usage meter: signature sliding-window animation.
+ * Sweeps cyan gradient across the 5-hour progress bar to convey the
+ * rolling-window nature (not a daily reset).
+ * Combined with motion-safe: so prefers-reduced-motion users get a static bar.
+ */
+@keyframes sliding-window-sweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+

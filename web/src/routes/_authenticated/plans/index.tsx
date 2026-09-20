@@ -1,7 +1,22 @@
-/* Copyright (C) 2023-2026 QuantumNous
- * ... (license) ...
- */
-import { createFileRoute } from '@tanstack/react-router'
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -30,38 +45,50 @@ function PlansPage() {
     const load = async () => {
       try {
         const r2 = await fetch('/api/subscription/self', { credentials: 'include' })
-        if (!cancelled && r2.ok) {
-          const d2 = await r2.json()
-          setSelfSub(d2?.data || null)
-        }
-      } catch {}
+        if (cancelled || !r2.ok) return
+        const d2 = await r2.json()
+        // /api/subscription/self returns { billing_preference, subscriptions: [...], all_subscriptions: [...] }.
+        // Take the first active subscription record.
+        const subs = d2?.data?.subscriptions
+        setSelfSub(Array.isArray(subs) && subs.length > 0 ? subs[0] : null)
+      } catch {
+        // Silent: section just won't render.
+      }
     }
     void load()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [authUser?.id, refreshKey])
 
   return (
     <SectionPageLayout>
       <SectionPageLayout.Title>{t('Subscription Plans')}</SectionPageLayout.Title>
-      <SectionPageLayout.Description>
-        {t('Simple, transparent pricing that scales with you')}
-      </SectionPageLayout.Description>
       <SectionPageLayout.Content>
-        <div className='mx-auto flex w-full max-w-7xl flex-col gap-6'>
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
           {selfSub?.subscription && (
-            <div className='bg-muted/30 border-primary/30 rounded-xl border p-4'>
-              <div className='text-muted-foreground text-xs uppercase tracking-wider'>{t('Your current subscription')}</div>
-              <div className='mt-1 text-lg font-semibold'>{selfSub.plan?.title || `Plan #${selfSub.subscription.plan_id}`}</div>
-              <div className='text-muted-foreground mt-1 text-sm'>
-                {t('Remaining')} {((Number(selfSub.subscription.amount_total || 0) - Number(selfSub.subscription.amount_used || 0)) / 500000).toFixed(2)} CNY
+            <div className="rounded-xl border border-primary/30 bg-muted/30 p-5">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                {t('Your current subscription')}
+              </div>
+              <div className="mt-1 text-lg font-semibold">
+                {selfSub.plan?.title || 'Plan #' + selfSub.subscription.plan_id}
               </div>
               <SubscriptionWindowMeters sub={selfSub} t={t} />
+              <Link
+                to="/plans/current"
+                className="text-primary mt-3 inline-block text-sm underline-offset-4 hover:underline"
+              >
+                {t('View usage details')}
+                {' →'}
+              </Link>
             </div>
           )}
           <SubscriptionPlansCard
             key={refreshKey}
             topupInfo={topupInfo}
             userQuota={authUser?.quota}
+            currentSubscription={selfSub}
             onPurchaseSuccess={() => setRefreshKey((k) => k + 1)}
           />
         </div>

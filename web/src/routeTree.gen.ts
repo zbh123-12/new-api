@@ -29,6 +29,8 @@ import { Route as errors503RouteImport } from './routes/(errors)/503'
 import { Route as AuthenticatedChat2linkRouteImport } from './routes/_authenticated/chat2link'
 import { Route as AuthenticatedSystemSettingsRouteRouteImport } from './routes/_authenticated/system-settings/route'
 import { Route as AboutIndexRouteImport } from './routes/about/index'
+import { Route as LegalAutoRenewalRouteImport } from './routes/legal/auto-renewal'
+import { Route as LegalTermsRouteImport } from './routes/legal/terms'
 import { Route as OauthProviderRouteImport } from './routes/oauth/$provider'
 import { Route as PricingIndexRouteImport } from './routes/pricing/index'
 import { Route as RankingsIndexRouteImport } from './routes/rankings/index'
@@ -43,6 +45,8 @@ import { Route as AuthenticatedKeysIndexRouteImport } from './routes/_authentica
 import { Route as AuthenticatedModelsIndexRouteImport } from './routes/_authenticated/models/index'
 import { Route as AuthenticatedModelsSectionRouteImport } from './routes/_authenticated/models/$section'
 import { Route as AuthenticatedPlansIndexRouteImport } from './routes/_authenticated/plans/index'
+import { Route as AuthenticatedPlansCurrentRouteImport } from './routes/_authenticated/plans/current'
+import { Route as AuthenticatedPlansDetailsRouteImport } from './routes/_authenticated/plans/details'
 import { Route as AuthenticatedPlaygroundIndexRouteImport } from './routes/_authenticated/playground/index'
 import { Route as AuthenticatedProfileIndexRouteImport } from './routes/_authenticated/profile/index'
 import { Route as AuthenticatedRedemptionCodesIndexRouteImport } from './routes/_authenticated/redemption-codes/index'
@@ -168,6 +172,16 @@ const AboutIndexRoute = AboutIndexRouteImport.update({
   path: '/about/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LegalAutoRenewalRoute = LegalAutoRenewalRouteImport.update({
+  id: '/legal/auto-renewal',
+  path: '/legal/auto-renewal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalTermsRoute = LegalTermsRouteImport.update({
+  id: '/legal/terms',
+  path: '/legal/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OauthProviderRoute = OauthProviderRouteImport.update({
   id: '/oauth/$provider',
   path: '/oauth/$provider',
@@ -244,6 +258,18 @@ const AuthenticatedPlansIndexRoute = AuthenticatedPlansIndexRouteImport.update({
   path: '/plans/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPlansCurrentRoute =
+  AuthenticatedPlansCurrentRouteImport.update({
+    id: '/plans/current',
+    path: '/plans/current',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedPlansDetailsRoute =
+  AuthenticatedPlansDetailsRouteImport.update({
+    id: '/plans/details',
+    path: '/plans/details',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedPlaygroundIndexRoute =
   AuthenticatedPlaygroundIndexRouteImport.update({
     id: '/playground/',
@@ -411,6 +437,8 @@ export interface FileRoutesByFullPath {
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/chat2link': typeof AuthenticatedChat2linkRoute
+  '/legal/auto-renewal': typeof LegalAutoRenewalRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/oauth/$provider': typeof OauthProviderRoute
   '/about/': typeof AboutIndexRoute
   '/pricing/': typeof PricingIndexRoute
@@ -421,6 +449,8 @@ export interface FileRoutesByFullPath {
   '/dashboard/$section': typeof AuthenticatedDashboardSectionRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/models/$section': typeof AuthenticatedModelsSectionRoute
+  '/plans/current': typeof AuthenticatedPlansCurrentRoute
+  '/plans/details': typeof AuthenticatedPlansDetailsRoute
   '/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/channels/': typeof AuthenticatedChannelsIndexRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
@@ -469,6 +499,8 @@ export interface FileRoutesByTo {
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/chat2link': typeof AuthenticatedChat2linkRoute
+  '/legal/auto-renewal': typeof LegalAutoRenewalRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/oauth/$provider': typeof OauthProviderRoute
   '/about': typeof AboutIndexRoute
   '/pricing': typeof PricingIndexRoute
@@ -479,6 +511,8 @@ export interface FileRoutesByTo {
   '/dashboard/$section': typeof AuthenticatedDashboardSectionRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/models/$section': typeof AuthenticatedModelsSectionRoute
+  '/plans/current': typeof AuthenticatedPlansCurrentRoute
+  '/plans/details': typeof AuthenticatedPlansDetailsRoute
   '/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/channels': typeof AuthenticatedChannelsIndexRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
@@ -531,6 +565,8 @@ export interface FileRoutesById {
   '/(errors)/500': typeof errors500Route
   '/(errors)/503': typeof errors503Route
   '/_authenticated/chat2link': typeof AuthenticatedChat2linkRoute
+  '/legal/auto-renewal': typeof LegalAutoRenewalRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/oauth/$provider': typeof OauthProviderRoute
   '/about/': typeof AboutIndexRoute
   '/pricing/': typeof PricingIndexRoute
@@ -541,6 +577,8 @@ export interface FileRoutesById {
   '/_authenticated/dashboard/$section': typeof AuthenticatedDashboardSectionRoute
   '/_authenticated/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/_authenticated/models/$section': typeof AuthenticatedModelsSectionRoute
+  '/_authenticated/plans/current': typeof AuthenticatedPlansCurrentRoute
+  '/_authenticated/plans/details': typeof AuthenticatedPlansDetailsRoute
   '/_authenticated/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/_authenticated/channels/': typeof AuthenticatedChannelsIndexRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
@@ -592,6 +630,8 @@ export interface FileRouteTypes {
     | '/500'
     | '/503'
     | '/chat2link'
+    | '/legal/auto-renewal'
+    | '/legal/terms'
     | '/oauth/$provider'
     | '/about/'
     | '/pricing/'
@@ -602,6 +642,8 @@ export interface FileRouteTypes {
     | '/dashboard/$section'
     | '/errors/$error'
     | '/models/$section'
+    | '/plans/current'
+    | '/plans/details'
     | '/usage-logs/$section'
     | '/channels/'
     | '/dashboard/'
@@ -650,6 +692,8 @@ export interface FileRouteTypes {
     | '/500'
     | '/503'
     | '/chat2link'
+    | '/legal/auto-renewal'
+    | '/legal/terms'
     | '/oauth/$provider'
     | '/about'
     | '/pricing'
@@ -660,6 +704,8 @@ export interface FileRouteTypes {
     | '/dashboard/$section'
     | '/errors/$error'
     | '/models/$section'
+    | '/plans/current'
+    | '/plans/details'
     | '/usage-logs/$section'
     | '/channels'
     | '/dashboard'
@@ -711,6 +757,8 @@ export interface FileRouteTypes {
     | '/(errors)/500'
     | '/(errors)/503'
     | '/_authenticated/chat2link'
+    | '/legal/auto-renewal'
+    | '/legal/terms'
     | '/oauth/$provider'
     | '/about/'
     | '/pricing/'
@@ -721,6 +769,8 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard/$section'
     | '/_authenticated/errors/$error'
     | '/_authenticated/models/$section'
+    | '/_authenticated/plans/current'
+    | '/_authenticated/plans/details'
     | '/_authenticated/usage-logs/$section'
     | '/_authenticated/channels/'
     | '/_authenticated/dashboard/'
@@ -764,6 +814,8 @@ export interface RootRouteChildren {
   errors404Route: typeof errors404Route
   errors500Route: typeof errors500Route
   errors503Route: typeof errors503Route
+  LegalAutoRenewalRoute: typeof LegalAutoRenewalRoute
+  LegalTermsRoute: typeof LegalTermsRoute
   OauthProviderRoute: typeof OauthProviderRoute
   AboutIndexRoute: typeof AboutIndexRoute
   PricingIndexRoute: typeof PricingIndexRoute
@@ -914,6 +966,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AboutIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/legal/auto-renewal': {
+      id: '/legal/auto-renewal'
+      path: '/legal/auto-renewal'
+      fullPath: '/legal/auto-renewal'
+      preLoaderRoute: typeof LegalAutoRenewalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/terms': {
+      id: '/legal/terms'
+      path: '/legal/terms'
+      fullPath: '/legal/terms'
+      preLoaderRoute: typeof LegalTermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/oauth/$provider': {
       id: '/oauth/$provider'
       path: '/oauth/$provider'
@@ -1010,6 +1076,20 @@ declare module '@tanstack/react-router' {
       path: '/plans'
       fullPath: '/plans/'
       preLoaderRoute: typeof AuthenticatedPlansIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/plans/current': {
+      id: '/_authenticated/plans/current'
+      path: '/plans/current'
+      fullPath: '/plans/current'
+      preLoaderRoute: typeof AuthenticatedPlansCurrentRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/plans/details': {
+      id: '/_authenticated/plans/details'
+      path: '/plans/details'
+      fullPath: '/plans/details'
+      preLoaderRoute: typeof AuthenticatedPlansDetailsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/playground/': {
@@ -1280,6 +1360,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardSectionRoute: typeof AuthenticatedDashboardSectionRoute
   AuthenticatedErrorsErrorRoute: typeof AuthenticatedErrorsErrorRoute
   AuthenticatedModelsSectionRoute: typeof AuthenticatedModelsSectionRoute
+  AuthenticatedPlansCurrentRoute: typeof AuthenticatedPlansCurrentRoute
+  AuthenticatedPlansDetailsRoute: typeof AuthenticatedPlansDetailsRoute
   AuthenticatedUsageLogsSectionRoute: typeof AuthenticatedUsageLogsSectionRoute
   AuthenticatedChannelsIndexRoute: typeof AuthenticatedChannelsIndexRoute
   AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
@@ -1304,6 +1386,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardSectionRoute: AuthenticatedDashboardSectionRoute,
   AuthenticatedErrorsErrorRoute: AuthenticatedErrorsErrorRoute,
   AuthenticatedModelsSectionRoute: AuthenticatedModelsSectionRoute,
+  AuthenticatedPlansCurrentRoute: AuthenticatedPlansCurrentRoute,
+  AuthenticatedPlansDetailsRoute: AuthenticatedPlansDetailsRoute,
   AuthenticatedUsageLogsSectionRoute: AuthenticatedUsageLogsSectionRoute,
   AuthenticatedChannelsIndexRoute: AuthenticatedChannelsIndexRoute,
   AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
@@ -1335,6 +1419,8 @@ const rootRouteChildren: RootRouteChildren = {
   errors404Route: errors404Route,
   errors500Route: errors500Route,
   errors503Route: errors503Route,
+  LegalAutoRenewalRoute: LegalAutoRenewalRoute,
+  LegalTermsRoute: LegalTermsRoute,
   OauthProviderRoute: OauthProviderRoute,
   AboutIndexRoute: AboutIndexRoute,
   PricingIndexRoute: PricingIndexRoute,

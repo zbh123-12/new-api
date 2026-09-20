@@ -2,7 +2,47 @@
 
 Recent changes (newest first). Generated from git log + working tree diff on 2026-09-18.
 
-## Uncommitted (working tree dirty, 2026-09-18)
+## Phase 1 — 2026-09-20: 套餐用量集中页 /plans/current
+
+新增路由 `/plans/current`,集中展示当前订阅的:
+- 套餐名 + 到期时间
+- 5h + 周限额用量进度条(复用 SubscriptionWindowMeters)
+- 允许的模型列表(badge)
+- 返回 /plans 链接 + 无订阅时的"浏览套餐"按钮
+
+`/plans` 顶部"当前订阅"卡片新增"查看用量详情 →"链接,
+跳转到新页。
+
+### 新增文件
+- `web/src/features/subscriptions/components/allowed-models-list.tsx` — allowed_models CSV → badge 列表
+- `web/src/features/subscriptions/components/subscription-status-card.tsx` — Hero + window meters + actions
+- `web/src/routes/_authenticated/plans/current.tsx` — 路由 + 空态处理
+
+### 修改文件
+- `web/src/routes/_authenticated/plans/index.tsx` — 顶部卡片加"查看用量详情"链接
+
+### 新增 i18n keys(12)
+- Subscription Usage / 套餐用量
+- View current subscription and usage details / 查看当前订阅与用量明细
+- Current subscription / 当前订阅
+- Expires at / 到期时间
+- Manage subscription / 管理订阅
+- Upgrade / 升级
+- Allowed models / 允许的模型
+- No model restrictions / 无模型限制
+- Back to plans / 返回套餐列表
+- You have no active subscription. / 您当前没有生效中的订阅。
+- Browse plans / 浏览套餐
+- View usage details / 查看用量详情
+
+### 回退
+```bash
+git log --grep="\[sub-page\] phase-1"        # 找到 SHA
+git revert <sha>                          # 一键回退
+```
+
+## Uncommitted
+ (working tree dirty, 2026-09-18)
 
 These changes are in the working tree but not yet committed. Need review before commit.
 
