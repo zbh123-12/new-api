@@ -66,6 +66,20 @@ function PlansPage() {
       <SectionPageLayout.Title>{t('Subscription Plans')}</SectionPageLayout.Title>
       <SectionPageLayout.Content>
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+          {/* Always-visible: link to subscription details / history.
+              Visible regardless of whether the user has an active subscription,
+              so users without one still find the page and see the empty-state CTA. */}
+          <div className="flex items-center justify-end">
+            <Link
+              to="/plans/current"
+              className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm underline-offset-4 hover:underline"
+            >
+              {selfSub?.subscription
+                ? t('View usage details')
+                : t('View my subscription')}
+              {' →'}
+            </Link>
+          </div>
           {selfSub?.subscription && (
             <div className="rounded-xl border border-primary/30 bg-muted/30 p-5">
               <div className="text-xs uppercase tracking-wider text-muted-foreground">
@@ -75,13 +89,6 @@ function PlansPage() {
                 {selfSub.plan?.title || 'Plan #' + selfSub.subscription.plan_id}
               </div>
               <SubscriptionWindowMeters sub={selfSub} t={t} />
-              <Link
-                to="/plans/current"
-                className="text-primary mt-3 inline-block text-sm underline-offset-4 hover:underline"
-              >
-                {t('View usage details')}
-                {' →'}
-              </Link>
             </div>
           )}
           <SubscriptionPlansCard

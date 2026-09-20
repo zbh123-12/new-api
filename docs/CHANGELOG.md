@@ -97,6 +97,35 @@ git log --grep='phase-1.2'
 git revert <sha>
 ```
 
+## Phase 1.3 — 2026-09-20: 套餐详情页入口 + 历史订阅回退
+
+### Issue 1:无法进入套餐详情页(只能买完后跳转)
+两条新入口,无论是否有订阅都能进:
+- **侧边栏** Personal 区加 "我的订阅" / My Subscription 入口 → /plans/current
+- **/plans 页顶部** 永远显示 "View my subscription →" 链接(原"查看用量详情"只在有订阅时显示)
+
+### Issue 2:套餐详情页空
+两条改进:
+- `/plans/current` 改用 `all_subscriptions` fallback —— 用户曾订阅过期后也能看到记录
+- 渲染判断从 `selfSub?.subscription` 改为 `selfSub`,历史订阅也能进状态卡(过期会用过去时间显示)
+
+### 新增文件
+- 无
+
+### 修改文件
+- web/src/hooks/use-sidebar-data.ts — 个人区加 My Subscription 入口
+- web/src/routes/_authenticated/plans/index.tsx — 顶部链接始终显示
+- web/src/routes/_authenticated/plans/current.tsx — fallback 到 all_subscriptions + 放宽渲染条件
+- web/src/i18n/locales/{en,zh,zh-TW,fr,ja,ru,vi}.json — 1 个新 key: My Subscription
+
+### 回退命令
+```bash
+git log --grep='phase-1.3'
+git revert <sha>
+```
+
+## Uncommitted
+
 ## Uncommitted
 
 ## Uncommitted

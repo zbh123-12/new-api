@@ -115,6 +115,11 @@ export function useSidebarData(): SidebarData {
             icon: Sparkles,
           },
           {
+            title: t('My Subscription'),
+            url: '/plans/current',
+            icon: CreditCard,
+          },
+          {
             title: t('Profile'),
             url: '/profile',
             icon: User,

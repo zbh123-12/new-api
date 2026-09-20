@@ -49,9 +49,18 @@ function CurrentPlanPage() {
           if (cancelled) return
           if (r.ok) {
             const d = await r.json()
-            const subs = d?.data?.subscriptions
-            if (Array.isArray(subs) && subs.length > 0) {
-              setSelfSub(subs[0])
+            // Prefer active subscription; fall back to most-recent historical one
+            // so the page is never completely empty for returning users.
+            const active = d?.data?.subscriptions
+            const all = d?.data?.all_subscriptions
+            const pick =
+              Array.isArray(active) && active.length > 0
+                ? active[0]
+                : Array.isArray(all) && all.length > 0
+                  ? all[0]
+                  : null
+            if (pick) {
+              setSelfSub(pick)
               setLoading(false)
               return
             }
@@ -89,7 +98,7 @@ function CurrentPlanPage() {
             <div className="bg-card text-muted-foreground rounded-xl border p-10 text-center text-sm">
               {t('Loading...')}
             </div>
-          ) : selfSub?.subscription ? (
+          ) : selfSub ? (
             <SubscriptionStatusCard sub={selfSub} />
           ) : (
             <div className="bg-card rounded-xl border p-10 text-center">

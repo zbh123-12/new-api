@@ -2697,6 +2697,7 @@
     "Multipliers for recharge pricing based on user groups.": "Множители для ценообразования пополнения на основе групп пользователей.",
     "Must be a valid URL": "Должен быть действительный URL",
     "Must be at least 8 characters": "Должно быть не менее 8 символов",
+    "My Subscription": "My Subscription",
     "My Subscriptions": "Мои подписки",
     "MySQL detected": "Обнаружен MySQL",
     "MySQL is a production-ready relational database. Keep your credentials secure.": "MySQL — реляционная база данных, готовая к продакшену. Храните учётные данные в безопасности.",
