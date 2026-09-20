@@ -16,14 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Crown, CalendarClock, Package } from 'lucide-react'
+import { Crown } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { useNavigate } from '@tanstack/react-router'
 
 import { Dialog } from '@/components/dialog'
-import { GroupBadge } from '@/components/group-badge'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -33,11 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Separator } from '@/components/ui/separator'
-import { useSystemConfig } from '@/hooks/use-system-config'
-import { formatRawTokensWithUnit } from '@/lib/format'
 import { formatCurrencyFromUSD } from '@/lib/currency'
-import { DEFAULT_CURRENCY_CONFIG } from '@/stores/system-config-store'
 
 import {
   paySubscriptionStripe,
@@ -46,8 +41,7 @@ import {
   paySubscriptionWaffoPancake,
   paySubscriptionBalance,
 } from '../../api'
-import { formatDuration, formatResetPeriod } from '../../lib'
-import type { PlanRecord } from '../../types'
+import type { PlanRecord, UserSubscriptionRecord } from '../../types'
 
 interface PaymentMethod {
   type: string
@@ -58,6 +52,7 @@ interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   plan: PlanRecord | null
+  currentSubscription?: UserSubscriptionRecord | null
   enableStripe?: boolean
   enableCreem?: boolean
   enableWaffoPancake?: boolean
@@ -69,9 +64,29 @@ interface Props {
   onPurchaseSuccess?: () => void | Promise<void>
 }
 
+// 1 quota unit = 500000 (matches quota_per_unit CNY/USD default in new-api).
+// Used to convert internal quota points back to CNY for the upgrade dialog.
+const QUOTA_PER_UNIT = 500000
+
+function formatYuan(amount: number): string {
+  return '¥' + amount.toLocaleString('zh-CN', {
+    minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  })
+}
+
+function formatDate(timestamp: number | undefined): string {
+  if (!timestamp) return '-'
+  const d = new Date(timestamp * 1000)
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return yyyy + '-' + mm + '-' + dd
+}
+
 export function SubscriptionPurchaseDialog(props: Props) {
   const { t } = useTranslation()
-  const { currency } = useSystemConfig()
+  const navigate = useNavigate()
   const [paying, setPaying] = useState(false)
   const [selectedEpayMethod, setSelectedEpayMethod] = useState('')
 
@@ -93,27 +108,48 @@ export function SubscriptionPurchaseDialog(props: Props) {
   const hasEpay =
     props.enableOnlineTopUp && (props.epayMethods || []).length > 0
   const hasAnyPayment = hasStripe || hasCreem || hasWaffoPancake || hasEpay
+
   const selectedEpayMethodLabel =
     (props.epayMethods || []).find((m) => m.type === selectedEpayMethod)
       ?.name ||
     selectedEpayMethod ||
     t('Select payment method')
-  const totalAmount = Number(plan.total_amount || 0)
-  const price = Number(plan.price_amount || 0).toFixed(2)
-  const quotaPerUnit =
-    currency?.quotaPerUnit && currency.quotaPerUnit > 0
-      ? currency.quotaPerUnit
-      : DEFAULT_CURRENCY_CONFIG.quotaPerUnit
-  const balanceCost = Math.max(
-    0,
-    Math.ceil(Number(plan.price_amount || 0) * quotaPerUnit)
-  )
-  const userQuota = Math.max(0, Number(props.userQuota || 0))
+
+  const currentSub = props.currentSubscription?.subscription
+  const currentPlan = props.currentSubscription?.plan
+  const isUpgrade = !!(currentSub && currentPlan && currentPlan.id !== plan.id)
+  const isRenewal = !!(currentSub && currentPlan && currentPlan.id === plan.id)
+
+  // Pricing math.
+  const newPrice = Number(plan.price_amount || 0)
+  const oldPrice = currentPlan ? Number(currentPlan.price_amount || 0) : 0
+  const remainingValueCny =
+    currentSub
+      ? Math.max(
+          0,
+          (Number(currentSub.amount_total || 0) -
+            Number(currentSub.amount_used || 0)) /
+            QUOTA_PER_UNIT,
+        )
+      : 0
+  const totalDue = Math.max(0, newPrice - remainingValueCny)
+
   const allowBalancePay = plan.allow_balance_pay !== false
-  const insufficientBalance = userQuota < balanceCost
+  const userQuota = Math.max(0, Number(props.userQuota || 0))
+  const insufficientBalance = userQuota < totalDue * QUOTA_PER_UNIT
   const limitReached =
     (props.purchaseLimit || 0) > 0 &&
     (props.purchaseCount || 0) >= (props.purchaseLimit || 0)
+
+  const dialogTitle = isUpgrade
+    ? t('Upgrade subscription')
+    : isRenewal
+      ? t('Renew subscription')
+      : t('Subscribe to plan')
+
+  const subtitle = t(
+    'The new plan takes effect immediately. Subsequent billing will use the new plan price. You can cancel anytime.',
+  )
 
   const handlePayStripe = async () => {
     setPaying(true)
@@ -127,7 +163,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
         toast.error(
           res.message && res.message !== 'success'
             ? res.message
-            : t('Payment request failed')
+            : t('Payment request failed'),
         )
       }
     } catch {
@@ -149,7 +185,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
         toast.error(
           res.message && res.message !== 'success'
             ? res.message
-            : t('Payment request failed')
+            : t('Payment request failed'),
         )
       }
     } catch {
@@ -159,8 +195,6 @@ export function SubscriptionPurchaseDialog(props: Props) {
     }
   }
 
-  // In-tab redirect (not window.open) — user-gesture context is lost
-  // across the await, so a popup would be blocked. Same as the wallet hook.
   const handlePayWaffoPancake = async () => {
     setPaying(true)
     try {
@@ -172,7 +206,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
         toast.error(
           res.message && res.message !== 'success'
             ? res.message
-            : t('Payment request failed')
+            : t('Payment request failed'),
         )
       }
     } catch {
@@ -220,7 +254,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
         toast.error(
           res.message && res.message !== 'success'
             ? res.message
-            : t('Payment request failed')
+            : t('Payment request failed'),
         )
       }
     } catch {
@@ -240,13 +274,14 @@ export function SubscriptionPurchaseDialog(props: Props) {
       const res = await paySubscriptionBalance({ plan_id: plan.id })
       if (res.success) {
         toast.success(t('Subscription purchased successfully'))
-        void props.onPurchaseSuccess?.()
         props.onOpenChange(false)
+        void props.onPurchaseSuccess?.()
+        navigate({ to: '/plans/current' })
       } else {
         toast.error(
           res.message && res.message !== 'success'
             ? res.message
-            : t('Payment request failed')
+            : t('Payment request failed'),
         )
       }
     } catch {
@@ -262,183 +297,189 @@ export function SubscriptionPurchaseDialog(props: Props) {
       onOpenChange={props.onOpenChange}
       title={
         <>
-          <Crown className='h-5 w-5' />
-          {t('Purchase Subscription')}
+          <Crown className="h-5 w-5" />
+          {dialogTitle}
         </>
       }
-      contentClassName='max-sm:w-[calc(100vw-1.5rem)] sm:max-w-md'
-      titleClassName='flex items-center gap-2'
-      contentHeight='auto'
-      bodyClassName='space-y-4'
+      contentClassName="max-sm:w-[calc(100vw-1.5rem)] sm:max-w-md"
+      titleClassName="flex items-center gap-2"
+      contentHeight="auto"
+      bodyClassName="space-y-5"
     >
-      <div className='space-y-3 sm:space-y-4'>
-        <div className='bg-muted/50 space-y-2.5 rounded-lg border p-3 sm:space-y-3 sm:p-4'>
-          <div className='flex justify-between'>
-            <span className='text-muted-foreground text-sm'>
-              {t('Plan Name')}
-            </span>
-            <span className='max-w-[200px] truncate text-sm font-medium'>
-              {plan.title}
-            </span>
+      <p className="text-muted-foreground -mt-2 text-sm leading-relaxed">
+        {subtitle}
+      </p>
+
+      {/* Current plan expiry (only when upgrading / renewing) */}
+      {currentSub && currentSub.end_time > 0 && (
+        <div className="bg-muted/40 rounded-lg px-4 py-3 text-sm">
+          <div className="text-muted-foreground text-xs">
+            {t('Current plan valid until')}
           </div>
-          <div className='flex items-center justify-between'>
-            <span className='text-muted-foreground text-sm'>
-              {t('Validity Period')}
-            </span>
-            <span className='flex items-center gap-1 text-sm'>
-              <CalendarClock className='h-3.5 w-3.5' />
-              {formatDuration(plan, t)}
-            </span>
-          </div>
-          {formatResetPeriod(plan, t) !== t('No Reset') && (
-            <div className='flex justify-between'>
-              <span className='text-muted-foreground text-sm'>
-                {t('Reset Period')}
-              </span>
-              <span className='text-sm'>{formatResetPeriod(plan, t)}</span>
-            </div>
-          )}
-          <div className='flex items-center justify-between'>
-            <span className='text-muted-foreground text-sm'>
-              {t('Plan Quota')}
-            </span>
-            <span className='flex items-center gap-1 text-sm'>
-              <Package className='h-3.5 w-3.5' />
-              {totalAmount > 0 ? formatRawTokensWithUnit(totalAmount, t('tokens'), t('Unlimited')) : t('Unlimited')}
-            </span>
-          </div>
-          {plan.upgrade_group && (
-            <div className='flex items-center justify-between'>
-              <span className='text-muted-foreground text-sm'>
-                {t('Upgrade Group')}
-              </span>
-              <GroupBadge group={plan.upgrade_group} />
-            </div>
-          )}
-          <Separator />
-          <div className='flex items-center justify-between'>
-            <span className='text-sm font-medium'>{t('Amount Due')}</span>
-            <span className='text-primary text-lg font-bold'>¥{price}</span>
+          <div className="mt-0.5 font-medium">
+            {formatDate(currentSub.end_time)}
           </div>
         </div>
+      )}
 
-        {limitReached && (
-          <Alert variant='destructive'>
-            <AlertDescription>
-              {t('Purchase limit reached')} ({props.purchaseCount}/
-              {props.purchaseLimit})
-            </AlertDescription>
-          </Alert>
+      {/* Plan comparison block */}
+      <div className="divide-y rounded-lg border">
+        {/* From row */}
+        {currentPlan && (
+          <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-3 text-sm">
+            <span className="text-muted-foreground">{t('From')}</span>
+            <span className="truncate font-medium">{currentPlan.title}</span>
+            <span className="tabular-nums text-muted-foreground">
+              {formatYuan(oldPrice)} / {t('month')}
+            </span>
+          </div>
         )}
 
-        <div className='flex flex-col gap-2 rounded-md border p-3'>
-          <div className='flex items-center justify-between gap-2 text-xs'>
-            <span className='text-muted-foreground'>{t('This payment will cost')}</span>
-            <span className='font-medium'>{formatCurrencyFromUSD(balanceCost / quotaPerUnit)}</span>
-          </div>
-          <div className='flex items-center justify-between gap-2 text-xs'>
-            <span className='text-muted-foreground'>{t('Current Balance')}</span>
-            <span className='font-medium'>{formatCurrencyFromUSD(userQuota / quotaPerUnit)}</span>
-          </div>
-          {!allowBalancePay ? (
-            <Alert variant='destructive'>
-              <AlertDescription>
-                {t('This plan does not allow balance redemption')}
-              </AlertDescription>
-            </Alert>
-          ) : (
-            insufficientBalance && (
-              <Alert variant='destructive'>
-                <AlertDescription>{t('Insufficient wallet balance')}</AlertDescription>
-              </Alert>
-            )
-          )}
-          <Button
-            variant='outline'
-            onClick={handlePayBalance}
-            disabled={
-              paying || limitReached || !allowBalancePay || insufficientBalance
-            }
-          >
-            {t('Pay with Wallet Balance')}
-          </Button>
+        {/* To row */}
+        <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-3 text-sm">
+          <span className="text-muted-foreground">
+            {currentPlan ? t('To') : t('Plan')}
+          </span>
+          <span className="truncate font-medium">{plan.title}</span>
+          <span className="tabular-nums text-foreground font-medium">
+            {formatYuan(newPrice)} / {t('month')}
+          </span>
         </div>
 
-        {hasAnyPayment && (
-          <div className='space-y-3'>
-            <p className='text-muted-foreground text-xs'>
-              {t('Select payment method')}
-            </p>
-            {(hasStripe || hasCreem || hasWaffoPancake) && (
-              <div className='grid grid-cols-2 gap-2 sm:flex'>
-                {hasStripe && (
-                  <Button
-                    variant='outline'
-                    className='flex-1'
-                    onClick={handlePayStripe}
-                    disabled={paying || limitReached}
-                  >
-                    Stripe
-                  </Button>
-                )}
-                {hasCreem && (
-                  <Button
-                    variant='outline'
-                    className='flex-1'
-                    onClick={handlePayCreem}
-                    disabled={paying || limitReached}
-                  >
-                    Creem
-                  </Button>
-                )}
-                {hasWaffoPancake && (
-                  <Button
-                    variant='outline'
-                    className='flex-1'
-                    onClick={handlePayWaffoPancake}
-                    disabled={paying || limitReached}
-                  >
-                    Waffo Pancake
-                  </Button>
-                )}
-              </div>
-            )}
-            {hasEpay && (
-              <div className='grid grid-cols-[minmax(0,1fr)_auto] gap-2'>
-                <Select
-                  items={[
-                    ...(props.epayMethods || []).map((m) => ({
-                      value: m.type,
-                      label: m.name || m.type,
-                    })),
-                  ]}
-                  value={selectedEpayMethod}
-                  onValueChange={(v) => v !== null && setSelectedEpayMethod(v)}
-                  disabled={limitReached}
-                >
-                  <SelectTrigger className='flex-1'>
-                    <SelectValue>{selectedEpayMethodLabel}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent alignItemWithTrigger={false}>
-                    <SelectGroup>
-                      {(props.epayMethods || []).map((m) => (
-                        <SelectItem key={m.type} value={m.type}>
-                          {m.name || m.type}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
+        {/* Credit for remaining value (upgrade only) */}
+        {isUpgrade && remainingValueCny > 0 && (
+          <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-3 text-sm">
+            <span className="text-muted-foreground">
+              {t('Current plan credit')}
+            </span>
+            <span className="text-muted-foreground truncate text-xs">
+              {t('Prorated to remaining days')}
+            </span>
+            <span className="tabular-nums text-emerald-600">
+              -{formatYuan(remainingValueCny)}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Total due - large prominent */}
+      <div className="space-y-1">
+        <div className="text-muted-foreground text-xs">{t('Total due')}</div>
+        <div className="text-foreground text-3xl font-bold tabular-nums">
+          {formatYuan(totalDue)}
+        </div>
+      </div>
+
+      {/* Payment methods */}
+      {(allowBalancePay || hasAnyPayment) && (
+        <div className="space-y-3 border-t pt-4">
+          <div className="text-muted-foreground text-xs">
+            {t('Payment method')}
+          </div>
+
+          {allowBalancePay && (
+            <Button
+              variant="outline"
+              className="w-full justify-between"
+              onClick={handlePayBalance}
+              disabled={
+                paying || limitReached || !allowBalancePay || insufficientBalance
+              }
+            >
+              <span>{t('Pay with wallet balance')}</span>
+              <span className="tabular-nums text-muted-foreground">
+                {formatCurrencyFromUSD(userQuota / QUOTA_PER_UNIT)}
+              </span>
+            </Button>
+          )}
+
+          {(hasStripe || hasCreem || hasWaffoPancake) && (
+            <div className="grid grid-cols-2 gap-2 sm:flex">
+              {hasStripe && (
                 <Button
-                  onClick={handlePayEpay}
-                  disabled={paying || !selectedEpayMethod || limitReached}
+                  variant="outline"
+                  className="flex-1"
+                  onClick={handlePayStripe}
+                  disabled={paying || limitReached}
                 >
-                  {t('Pay')}
+                  Stripe
                 </Button>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+              {hasCreem && (
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={handlePayCreem}
+                  disabled={paying || limitReached}
+                >
+                  Creem
+                </Button>
+              )}
+              {hasWaffoPancake && (
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={handlePayWaffoPancake}
+                  disabled={paying || limitReached}
+                >
+                  Waffo Pancake
+                </Button>
+              )}
+            </div>
+          )}
+
+          {hasEpay && (
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+              <Select
+                items={[
+                  ...(props.epayMethods || []).map((m) => ({
+                    value: m.type,
+                    label: m.name || m.type,
+                  })),
+                ]}
+                value={selectedEpayMethod}
+                onValueChange={(v) => v !== null && setSelectedEpayMethod(v)}
+                disabled={limitReached}
+              >
+                <SelectTrigger className="flex-1">
+                  <SelectValue>{selectedEpayMethodLabel}</SelectValue>
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  <SelectGroup>
+                    {(props.epayMethods || []).map((m) => (
+                      <SelectItem key={m.type} value={m.type}>
+                        {m.name || m.type}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={handlePayEpay}
+                disabled={paying || !selectedEpayMethod || limitReached}
+              >
+                {t('Pay')}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {limitReached && (
+        <div className="text-destructive text-xs">
+          {t('Purchase limit reached')} ({props.purchaseCount}/
+          {props.purchaseLimit})
+        </div>
+      )}
+
+      {/* Footer: legal links */}
+      <div className="text-muted-foreground flex justify-center gap-4 border-t pt-3 text-xs">
+        <a href="/legal/terms" target="_blank" rel="noopener noreferrer" className="hover:text-foreground hover:underline">
+          {t('Terms of Service')}
+        </a>
+        <a href="/legal/auto-renewal" target="_blank" rel="noopener noreferrer" className="hover:text-foreground hover:underline">
+          {t('Auto-renewal policy')}
+        </a>
       </div>
     </Dialog>
   )

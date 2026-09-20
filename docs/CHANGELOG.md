@@ -41,6 +41,22 @@ git log --grep="\[sub-page\] phase-1"        # 找到 SHA
 git revert <sha>                          # 一键回退
 ```
 
+## Phase 1.1 — 2026-09-20: 购买成功跳转套餐详情页
+
+用户购买成功后(钱包余额支付成功路径),自动跳转到 `/plans/current` 套餐详情页。
+外部支付(Stripe/Creem/Epay/WaffoPancake)的"打开支付页"流程不跳转,
+因为实际支付在外部完成,用户回站后从 `/plans` 顶部"查看用量详情"链接进入。
+
+修改文件:
+  web/src/features/subscriptions/components/dialogs/subscription-purchase-dialog.tsx
+    + import useNavigate from @tanstack/react-router
+    + 调用 navigate({ to: '/plans/current' }) 在 handlePayBalance 成功路径上
+
+回退命令:
+  git log --grep='phase-1.1'
+  git revert <sha>
+
+
 ## Uncommitted
  (working tree dirty, 2026-09-18)
 
