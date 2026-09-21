@@ -28,6 +28,7 @@ import { SubscriptionWindowMeters } from '@/features/wallet/components/subscript
 
 import { useTopupInfo } from '@/features/wallet/hooks/use-topup-info'
 import type { UserSubscriptionRecord } from '@/features/subscriptions/types'
+import { getUserSubscriptionSelf } from '@/lib/api'
 
 export const Route = createFileRoute('/_authenticated/plans/')({
   component: PlansPage,
@@ -44,13 +45,20 @@ function PlansPage() {
     let cancelled = false
     const load = async () => {
       try {
-        const r2 = await fetch('/api/subscription/self', { credentials: 'include' })
-        if (cancelled || !r2.ok) return
-        const d2 = await r2.json()
+        // Use the shared axios helper so the Authorization header is attached
+        // automatically and a 401 triggers the standard refresh-then-retry flow.
+        // Raw fetch() here would skip both, so the UserAuth middleware rejects
+        // the request with 401 and the active-subscription banner never renders.
+        const d2 = await getUserSubscriptionSelf()
+        if (cancelled) return
         // /api/subscription/self returns { billing_preference, subscriptions: [...], all_subscriptions: [...] }.
         // Take the first active subscription record.
         const subs = d2?.data?.subscriptions
-        setSelfSub(Array.isArray(subs) && subs.length > 0 ? subs[0] : null)
+        setSelfSub(
+          Array.isArray(subs) && subs.length > 0
+            ? (subs[0] as UserSubscriptionRecord)
+            : null,
+        )
       } catch {
         // Silent: section just won't render.
       }
