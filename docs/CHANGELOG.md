@@ -1,6 +1,19 @@
 # Changelog — new-api
 
-Recent changes (newest first). Generated from git log + working tree diff on 2026-09-18.
+
+Recent changes (newest first). Generated from git log + working tree diff on 2026-09-21.
+
+## Phase 1.6 — 2026-09-21: 修复 /plans 系列页面因缺 Authorization header 误显空态
+
+### 根因
+`/plans/current` 和 `/plans` 顶部 banner 都用原生 `fetch()` 调 `/api/subscription/self`,只设 `credentials: include`(cookie),没有 Authorization header。后端 `UserAuth` 中间件要求 Bearer token,而 refresh cookie 路径是 `/api/user/auth`(不会随 `/api/subscription/self` 一起发),所以请求必然 401,3 次重试后 fallback 到空态。其他走 axios 的接口由 request interceptor 自动注入 token,所以正常。
+
+### 改动
+- `web/src/routes/_authenticated/plans/current.tsx`: 把 `fetch(...)` 换成 `@/lib/api` 的 `getUserSubscriptionSelf()`,走 axios 实例,Bearer header + 401 refresh-and-retry 自动接管。保留 3 次重试(原用途是后端购买后 commit 竞态)。
+- `web/src/routes/_authenticated/plans/index.tsx`: 同样替换,顶部"当前订阅"卡片现在能拿到 active sub 正常渲染。
+
+### 验证
+端到端:Edge incognito → 登录 12345678 → `/plans/current` 正常显示 Ultra 套餐卡(到期时间、5h/周用量、allowed_models);`/plans` 顶部"你的当前订阅 Ultra" + "查看用量详情 →" 链接正常。
 
 ## Phase 1 — 2026-09-20: 套餐用量集中页 /plans/current
 
