@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button'
 
 import { SubscriptionStatusCard } from '@/features/subscriptions/components/subscription-status-card'
 import type { UserSubscriptionRecord } from '@/features/subscriptions/types'
+import { getUserSubscriptionSelf } from '@/lib/api'
 
 export const Route = createFileRoute('/_authenticated/plans/current')({
   component: CurrentPlanPage,
@@ -45,25 +46,26 @@ function CurrentPlanPage() {
     const tryFetch = async () => {
       while (attempts < 3 && !cancelled) {
         try {
-          const r = await fetch('/api/subscription/self', { credentials: 'include' })
+          // Use the shared axios helper so the Authorization header is attached
+          // automatically and a 401 triggers the standard refresh-then-retry flow.
+          // Raw fetch() here would skip both, so the UserAuth middleware rejects
+          // the request with 401 and the page falls through to the empty state.
+          const d = await getUserSubscriptionSelf()
           if (cancelled) return
-          if (r.ok) {
-            const d = await r.json()
-            // Prefer active subscription; fall back to most-recent historical one
-            // so the page is never completely empty for returning users.
-            const active = d?.data?.subscriptions
-            const all = d?.data?.all_subscriptions
-            const pick =
-              Array.isArray(active) && active.length > 0
-                ? active[0]
-                : Array.isArray(all) && all.length > 0
-                  ? all[0]
-                  : null
-            if (pick) {
-              setSelfSub(pick)
-              setLoading(false)
-              return
-            }
+          // Prefer active subscription; fall back to most-recent historical one
+          // so the page is never completely empty for returning users.
+          const active = d?.data?.subscriptions
+          const all = d?.data?.all_subscriptions
+          const pick =
+            Array.isArray(active) && active.length > 0
+              ? (active[0] as UserSubscriptionRecord)
+              : Array.isArray(all) && all.length > 0
+                ? (all[0] as UserSubscriptionRecord)
+                : null
+          if (pick) {
+            setSelfSub(pick)
+            setLoading(false)
+            return
           }
         } catch {
           // silent — retry
