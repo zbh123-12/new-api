@@ -34,6 +34,7 @@ type BillingSession struct {
 	settled          bool // Settle 全部完成（资金 + 令牌）
 	refunded         bool // Refund 已调用
 	mu               sync.Mutex
+	tokenBypassed    bool // token 预扣被绕过(用 funding 兜底),Settle 时不再扣 token
 }
 
 // Settle 根据实际消耗额度进行结算。
@@ -57,9 +58,9 @@ func (s *BillingSession) Settle(actualQuota int) error {
 		}
 		s.fundingSettled = true
 	}
-	// 2) 调整令牌额度
+	// 2) 调整令牌额度 — token 预扣被绕过时不再扣 token（避免变负数，funding 端已扣）
 	var tokenErr error
-	if !s.relayInfo.IsPlayground {
+	if !s.tokenBypassed && !s.relayInfo.IsPlayground {
 		if delta > 0 {
 			tokenErr = model.DecreaseTokenQuota(s.relayInfo.TokenId, s.relayInfo.TokenKey, delta)
 		} else {
@@ -199,9 +200,21 @@ func (s *BillingSession) preConsume(c *gin.Context, quota int) *types.NewAPIErro
 	// ---- 1) 预扣令牌额度 ----
 	if effectiveQuota > 0 {
 		if err := PreConsumeTokenQuota(s.relayInfo, effectiveQuota); err != nil {
-			return types.NewErrorWithStatusCode(err, types.ErrorCodePreConsumeTokenQuotaFailed, http.StatusForbidden, types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
+			// 修复：token 余额耗尽时，允许非管理员走 funding 兜底（钱包或订阅），
+			// 避免「订阅耗尽后钱包有钱却 403」或「无套餐用户 key 默认 1 CNY 用完就 403」。
+			if s.canBypassTokenQuota(c) {
+				logger.LogInfo(c, fmt.Sprintf(
+					"token quota exhausted, bypassing to allow %s funding (user=%d, token=%d, role=%d, pref=%s)",
+					s.funding.Source(), s.relayInfo.UserId, s.relayInfo.TokenId,
+					c.GetInt("role"), common.NormalizeBillingPreference(s.relayInfo.UserSetting.BillingPreference)))
+				s.tokenBypassed = true
+				// 不返回错误，继续 step 2（funding 预扣）
+			} else {
+				return types.NewErrorWithStatusCode(err, types.ErrorCodePreConsumeTokenQuotaFailed, http.StatusForbidden, types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
+			}
+		} else {
+			s.tokenConsumed = effectiveQuota
 		}
-		s.tokenConsumed = effectiveQuota
 	}
 
 	// ---- 2) 预扣资金来源 ----
@@ -350,6 +363,30 @@ func (s *BillingSession) shouldTrust(c *gin.Context) bool {
 	default:
 		return false
 	}
+}
+
+// canBypassTokenQuota 判断当 token 预扣失败时是否可以「放过」，让 funding 兜底。
+// 仅当以下条件全部满足时才允许绕过：
+//  1. 非 playground 请求（playground 必须严格控制额度）
+//  2. 非管理员（管理员的 token 是显式独立额度，不应被绕过）
+//  3. 计费偏好不是 "subscription_only"（用户明确选了只用订阅 → 尊重选择）
+//  4. 用户钱包有余额（没余额绕过也白绕）
+func (s *BillingSession) canBypassTokenQuota(c *gin.Context) bool {
+	if s.relayInfo.IsPlayground {
+		return false
+	}
+	if c.GetInt("role") >= common.RoleAdminUser {
+		return false
+	}
+	pref := common.NormalizeBillingPreference(s.relayInfo.UserSetting.BillingPreference)
+	if pref == "subscription_only" {
+		return false
+	}
+	userQuota, err := model.GetUserQuota(s.relayInfo.UserId, false)
+	if err != nil || userQuota <= 0 {
+		return false
+	}
+	return true
 }
 
 // syncRelayInfo 将 BillingSession 的状态同步到 RelayInfo 的兼容字段上。
