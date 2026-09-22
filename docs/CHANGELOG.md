@@ -3,6 +3,28 @@
 
 Recent changes (newest first). Generated from git log + working tree diff on 2026-09-21.
 
+
+## Phase 2.2 — 2026-09-22: 非管理员 key 抽屉改成状态卡片 + 计费偏好单选
+
+### 改动
+- `web/src/features/keys/components/api-keys-mutate-drawer.tsx`: 新增 `NonAdminQuotaCard`(3 种状态)和 `BillingPreferenceRadioGroup`(4 个选项),替换原本对非管理员毫无作用的"额度 (CNY)"输入框。偏好切换调 `PUT /api/subscription/self/preference`,toast 提示。
+- 7 个 locale 各加 14 个 key:en 作为源,其他 6 语言用 AI 翻。
+
+### 验证
+typecheck/lint/build 通过。端到端:Edge → 登录 12345678 → /keys → "创建 API 密钥" → drawer 内显示 "继承自当前订阅"(套餐名 / 到期 / 剩余)+ 计费偏好 4 个 radio 单选,中文文案正确。
+
+## Phase 2.1 — 2026-09-22: token 余额耗尽时允许 funding 兜底
+
+### 根因
+`session.preConsume` 里 `PreConsumeTokenQuota` 失败时硬返回 `PreConsumeTokenQuotaFailed`(403),`NewBillingSession` 只在 `InsufficientUserQuota` 时回退 funding,所以 key 用完时即使钱包有钱也用不了。
+
+### 改动
+- `service/billing_session.go`: 加 `tokenBypassed` 字段 + `canBypassTokenQuota` 方法。bypass 条件:非 playground、非管理员、pref 非 `subscription_only`、钱包有余额。`Settle` 跳过 `tokenBypassed` 时的 token 扣减。
+- `service/billing_bypass_test.go`: 11 个 case 的表驱动测试。
+
+### 验证
+服务测试全过。端到端 4 个场景:A 普通 + sub 耗尽 + key 0/1 + wallet 585 → 200 ✓;B 普通 + 无 sub + key 1 + wallet 585 → 200 ✓;C 普通 + subscription_only + key 1 + wallet 585 → 403 ✓(尊重选择);D admin + key 0 + wallet 585 → 401 ✓(admin 不绕过)。
+
 ## Phase 1.6 — 2026-09-21: 修复 /plans 系列页面因缺 Authorization header 误显空态
 
 ### 根因
