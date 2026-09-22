@@ -5479,6 +5479,35 @@
     "© 2025 Your Company. All rights reserved.": "© 2025 您的公司。保留所有权利。",
     "、": "、",
     "，": "，",
-    "，and ": "，并"
+    "，and ": "，并",
+    "Billing preference": "计费偏好",
+
+    "Billing preference updated": "计费偏好已更新",
+
+    "Billing preference subscription first description": "套餐有余额时使用套餐;套餐耗尽后自动用钱包。",
+
+    "Billing preference wallet first description": "先用钱包;钱包不够时回退到套餐。",
+
+    "Billing preference subscription only description": "即使套餐耗尽也不动用钱包。",
+
+    "Billing preference wallet only description": "完全不使用套餐;只从钱包扣费。",
+
+    "Current wallet balance": "当前钱包余额",
+
+    "Failed to update billing preference": "计费偏好更新失败",
+
+    "Inherits from active subscription": "继承自当前订阅",
+
+    "No active subscription, key uses wallet balance": "无活跃套餐,key 使用钱包余额扣费",
+
+    "Subscription exhausted, wallet fallback active": "套餐已用完,正在使用钱包余额",
+
+    "This key automatically uses your {source} balance. The hard limit on the key itself does not block requests when wallet has balance.": "此 key 自动从您的 {source} 扣费。钱包有余额时,key 自身额度耗尽不会阻塞请求。",
+
+    "billing source label subscription": "套餐",
+
+    "billing source label wallet": "钱包"
+
+
   }
 }

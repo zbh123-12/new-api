@@ -5479,6 +5479,35 @@
     "© 2025 Your Company. All rights reserved.": "© 2025 Your Company. 全著作権所有。",
     "、": "、",
     "，": "、",
-    "，and ": "、"
+    "，and ": "、",
+    "Billing preference": "請求設定",
+
+    "Billing preference updated": "請求設定を更新しました",
+
+    "Billing preference subscription first description": "サブスクリプションに余裕がある間はサブスクを優先し、枯渇後にウォレットへ自動切替。",
+
+    "Billing preference wallet first description": "まずウォレットを使い、不足時にサブスクへフォールバック。",
+
+    "Billing preference subscription only description": "サブスク枯渇時もウォレットには手を出さない。",
+
+    "Billing preference wallet only description": "サブスクは一切使わず、常にウォレットから請求。",
+
+    "Current wallet balance": "現在のウォレット残高",
+
+    "Failed to update billing preference": "請求設定の更新に失敗しました",
+
+    "Inherits from active subscription": "現在のサブスクリプションを継承",
+
+    "No active subscription, key uses wallet balance": "有効なサブスクなし、このキーはウォレット残高を使用します",
+
+    "Subscription exhausted, wallet fallback active": "サブスク枯渇、ウォレットでフォールバック中",
+
+    "This key automatically uses your {source} balance. The hard limit on the key itself does not block requests when wallet has balance.": "このキーは自動的に {source} 残高を使用します。ウォレットに残高がある場合、キー自体の限度ではリクエストはブロックされません。",
+
+    "billing source label subscription": "サブスクリプション",
+
+    "billing source label wallet": "ウォレット"
+
+
   }
 }

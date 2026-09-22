@@ -5479,6 +5479,21 @@
     "© 2025 Your Company. All rights reserved.": "© 2025 Your Company. All rights reserved.",
     "、": ", ",
     "，": ", ",
-    "，and ": ", and "
+    "，and ": ", and ",
+    "Billing preference": "Billing preference",
+    "Billing preference updated": "Billing preference updated",
+    "Billing preference subscription first description": "Use your subscription while it has quota; fall back to wallet when exhausted.",
+    "Billing preference wallet first description": "Use your wallet first; fall back to subscription if wallet runs out.",
+    "Billing preference subscription only description": "Never touch the wallet, even when the subscription is exhausted.",
+    "Billing preference wallet only description": "Never touch the subscription; always charge the wallet.",
+    "Current wallet balance": "Current wallet balance",
+    "Failed to update billing preference": "Failed to update billing preference",
+    "Inherits from active subscription": "Inherits from active subscription",
+    "No active subscription, key uses wallet balance": "No active subscription, key uses wallet balance",
+    "Subscription exhausted, wallet fallback active": "Subscription exhausted, wallet fallback active",
+    "This key automatically uses your {source} balance. The hard limit on the key itself does not block requests when wallet has balance.": "This key automatically uses your {source} balance. The hard limit on the key itself does not block requests when wallet has balance.",
+    "billing source label subscription": "subscription",
+    "billing source label wallet": "wallet"
+
   }
 }

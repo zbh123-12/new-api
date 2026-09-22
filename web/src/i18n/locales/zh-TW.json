@@ -5479,6 +5479,35 @@
     "© 2025 Your Company. All rights reserved.": "© 2025 您的公司。保留所有權利。",
     "、": "、",
     "，": "，",
-    "，and ": "，並"
+    "，and ": "，並",
+    "Billing preference": "計費偏好",
+
+    "Billing preference updated": "計費偏好已更新",
+
+    "Billing preference subscription first description": "訂閱有餘額時使用訂閱;訂閱用盡後自動用錢包。",
+
+    "Billing preference wallet first description": "先用錢包;錢包不夠時回退到訂閱。",
+
+    "Billing preference subscription only description": "即使訂閱用盡也不動用錢包。",
+
+    "Billing preference wallet only description": "完全不使用訂閱;只從錢包扣費。",
+
+    "Current wallet balance": "目前錢包餘額",
+
+    "Failed to update billing preference": "計費偏好更新失敗",
+
+    "Inherits from active subscription": "繼承自目前訂閱",
+
+    "No active subscription, key uses wallet balance": "無活躍訂閱,key 使用錢包餘額扣費",
+
+    "Subscription exhausted, wallet fallback active": "訂閱已用完,正在使用錢包餘額",
+
+    "This key automatically uses your {source} balance. The hard limit on the key itself does not block requests when wallet has balance.": "此 key 自動從您的 {source} 扣費。錢包有餘額時,key 自身額度耗盡不會阻塞請求。",
+
+    "billing source label subscription": "訂閱",
+
+    "billing source label wallet": "錢包"
+
+
   }
 }

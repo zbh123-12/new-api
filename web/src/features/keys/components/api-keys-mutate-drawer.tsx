@@ -17,8 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useQuery } from '@tanstack/react-query'
-import { ChevronDown, KeyRound, Settings2, WalletCards } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ChevronDown, KeyRound, Package, Settings2, WalletCards } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useForm, type SubmitErrorHandler } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -64,7 +64,9 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { useIsAdmin } from '@/hooks/use-admin'
 import { useStatus } from '@/hooks/use-status'
-import { getUserModels, getUserGroups, getUserSubscriptionSelf } from '@/lib/api'
+import { getUserModels, getUserGroups, getUserSubscriptionSelf, getSelf } from '@/lib/api'
+import { updateBillingPreference } from '@/features/subscriptions/api'
+import type { UserSubscriptionRecord } from '@/features/subscriptions/types'
 import { getCurrencyDisplay, getCurrencyLabel } from '@/lib/currency'
 import { formatRawTokens } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -164,11 +166,40 @@ export function ApiKeysMutateDrawer({
     staleTime: 0,
   })
 
-  const activeSubscriptionSummary = useMemo(() => {
+  const activeSubscriptionRecord = useMemo(() => {
     const subs = subscriptionData?.data?.subscriptions
     if (!subs || subs.length === 0) return null
-    return subs[0]?.subscription ?? null
+    return subs[0] ?? null
   }, [subscriptionData])
+  const activeSubscriptionSummary = activeSubscriptionRecord?.subscription ?? null
+
+  const subscriptionState = useMemo<'active' | 'exhausted' | 'none'>(() => {
+    if (!activeSubscriptionSummary) return 'none'
+    if (activeSubscriptionSummary.amount_used >= activeSubscriptionSummary.amount_total) {
+      return 'exhausted'
+    }
+    return 'active'
+  }, [activeSubscriptionSummary])
+
+  const { data: selfData } = useQuery({
+    queryKey: ['user-self'],
+    queryFn: getSelf,
+    enabled: open && !isAdmin,
+    staleTime: 0,
+  })
+  const walletBalanceUnits = selfData?.data?.quota ?? 0
+
+  const queryClient = useQueryClient()
+  const { mutate: saveBillingPreference, isPending: savingBillingPreference } = useMutation({
+    mutationFn: (pref: string) => updateBillingPreference(pref),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-self'] })
+      toast.success(t('Billing preference updated'))
+    },
+    onError: () => {
+      toast.error(t('Failed to update billing preference'))
+    },
+  })
 
   const models = modelsData?.data || []
   const groups = useMemo<ApiKeyGroupOption[]>(
@@ -366,7 +397,7 @@ export function ApiKeysMutateDrawer({
     form.setValue('expired_time', now)
   }
 
-  const { meta: currencyMeta } = getCurrencyDisplay()
+  const { meta: currencyMeta, config } = getCurrencyDisplay()
   const currencyLabel = getCurrencyLabel()
   const tokensOnly = currencyMeta.kind === 'tokens'
   const quotaLabel = t('Quota ({{currency}})', { currency: currencyLabel })
@@ -669,37 +700,67 @@ export function ApiKeysMutateDrawer({
                 icon={<WalletCards className='size-4' />}
                 iconTone='success'
               />
-              {!unlimitedQuota && (
-                <FormField
-                  control={form.control}
-                  name='remain_quota_dollars'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{quotaLabel}</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          type='number'
-                          step={tokensOnly ? 1 : 0.01}
-                          placeholder={quotaPlaceholder}
-                          onChange={(e) =>
-                            field.onChange(
-                              Number.parseFloat(e.target.value) || 0
-                            )
-                          }
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        {tokensOnly
-                          ? t('Enter the quota amount in tokens')
-                          : t('Enter the quota amount in {{currency}}', {
-                              currency: currencyLabel,
-                            })}
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+              {isAdmin ? (
+                !unlimitedQuota && (
+                  <FormField
+                    control={form.control}
+                    name='remain_quota_dollars'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{quotaLabel}</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type='number'
+                            step={tokensOnly ? 1 : 0.01}
+                            placeholder={quotaPlaceholder}
+                            onChange={(e) =>
+                              field.onChange(
+                                Number.parseFloat(e.target.value) || 0
+                              )
+                            }
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {tokensOnly
+                            ? t('Enter the quota amount in tokens')
+                            : t('Enter the quota amount in {{currency}}', {
+                                currency: currencyLabel,
+                              })}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )
+              ) : (
+                <NonAdminQuotaCard
+                  state={subscriptionState}
+                  record={activeSubscriptionRecord}
+                  walletUnits={walletBalanceUnits}
+                  quotaPerUnit={config.quotaPerUnit}
                 />
+              )}
+
+              {!isAdmin && (
+                <SideDrawerSection>
+                  <SideDrawerSectionHeader
+                    title={t('Billing preference')}
+                    icon={<Settings2 className='size-4' />}
+                  />
+                  <BillingPreferenceRadioGroup
+                    current={selfData?.data?.setting ? (() => {
+                      try {
+                        const parsed = JSON.parse(selfData.data.setting)
+                        return parsed?.billing_preference ?? 'subscription_first'
+                      } catch {
+                        return 'subscription_first'
+                      }
+                    })() : 'subscription_first'}
+                    onChange={(pref) => saveBillingPreference(pref)}
+                    disabled={savingBillingPreference}
+                  />
+                </SideDrawerSection>
               )}
 
               {isAdmin && (
@@ -832,5 +893,162 @@ export function ApiKeysMutateDrawer({
     </Sheet>
   )
 }
+// ============================================================================
+// NonAdminQuotaCard
+// ============================================================================
 
+type NonAdminQuotaCardProps = {
+  state: 'active' | 'exhausted' | 'none'
+  record: UserSubscriptionRecord | null
+  walletUnits: number
+  quotaPerUnit: number
+}
 
+function NonAdminQuotaCard({
+  state,
+  record,
+  walletUnits,
+  quotaPerUnit,
+}: NonAdminQuotaCardProps) {
+  const { t } = useTranslation()
+  const walletCny = (walletUnits / quotaPerUnit).toFixed(2)
+  const planTitle = record?.plan?.title ?? t('Current subscription')
+
+  function pickHeadline(s: NonAdminQuotaCardProps['state']) {
+    if (s === 'active') return t('Inherits from active subscription')
+    if (s === 'exhausted') {
+      return t('Subscription exhausted, wallet fallback active')
+    }
+    return t('No active subscription, key uses wallet balance')
+  }
+  const headline = pickHeadline(state)
+
+  const Icon =
+    state === 'active' ? Package : WalletCards
+
+  const subtitleSource =
+    state === 'active'
+      ? t('billing source label subscription')
+      : t('billing source label wallet')
+
+  return (
+    <div className='bg-muted/30 border-muted-foreground/40 rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground'>
+      <div className='mb-1 flex items-center gap-1.5 font-medium text-foreground'>
+        <Icon className='size-3.5' />
+        {headline}
+      </div>
+      {state === 'active' && record && (
+        <div className='flex flex-col gap-0.5'>
+          <div>
+            {t('Current subscription')}: {planTitle}
+          </div>
+          <div>
+            {t('Will expire at')}:{' '}
+            {new Date(record.subscription.end_time * 1000).toLocaleString()}
+          </div>
+          <div>
+            {t('Remaining quota')}:{' '}
+            {formatRawTokens(
+              Math.max(
+                record.subscription.amount_total -
+                  record.subscription.amount_used,
+                0,
+              ),
+            )}{' '}
+            {t('tokens')}
+          </div>
+        </div>
+      )}
+      {(state === 'exhausted' || state === 'none') && (
+        <div className='flex flex-col gap-0.5'>
+          <div>
+            {t('Current wallet')}: ¥{walletCny}
+          </div>
+        </div>
+      )}
+      <div className='mt-1 text-muted-foreground/90'>
+        {t(
+          'This key automatically uses your {{source}} balance. The hard limit on the key itself does not block requests when wallet has balance.',
+          { source: subtitleSource },
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// BillingPreferenceRadioGroup
+// ============================================================================
+
+type BillingPreferenceOption = {
+  value: 'subscription_first' | 'wallet_first' | 'subscription_only' | 'wallet_only'
+  labelKey: string
+  descriptionKey: string
+}
+
+const BILLING_PREFERENCE_OPTIONS: BillingPreferenceOption[] = [
+  {
+    value: 'subscription_first',
+    labelKey: 'Subscription First',
+    descriptionKey: 'Billing preference subscription first description',
+  },
+  {
+    value: 'wallet_first',
+    labelKey: 'Wallet First',
+    descriptionKey: 'Billing preference wallet first description',
+  },
+  {
+    value: 'subscription_only',
+    labelKey: 'Subscription Only',
+    descriptionKey: 'Billing preference subscription only description',
+  },
+  {
+    value: 'wallet_only',
+    labelKey: 'Wallet Only',
+    descriptionKey: 'Billing preference wallet only description',
+  },
+]
+
+type BillingPreferenceRadioGroupProps = {
+  current: string
+  onChange: (value: string) => void
+  disabled?: boolean
+}
+
+function BillingPreferenceRadioGroup({
+  current,
+  onChange,
+  disabled,
+}: BillingPreferenceRadioGroupProps) {
+  const { t } = useTranslation()
+  return (
+    <div className='flex flex-col gap-2'>
+      {BILLING_PREFERENCE_OPTIONS.map((opt) => (
+        <label
+          key={opt.value}
+          className={cn(
+            'flex cursor-pointer items-start gap-2 rounded-md border border-input px-3 py-2 text-sm transition-colors hover:bg-muted/40',
+            current === opt.value && 'border-primary bg-primary/5',
+            disabled && 'cursor-not-allowed opacity-60',
+          )}
+        >
+          <input
+            type='radio'
+            name='billing_preference'
+            value={opt.value}
+            checked={current === opt.value}
+            disabled={disabled}
+            onChange={() => onChange(opt.value)}
+            className='mt-0.5 size-4 accent-primary'
+          />
+          <div className='flex flex-col gap-0.5'>
+            <span className='font-medium text-foreground'>{t(opt.labelKey)}</span>
+            <span className='text-xs text-muted-foreground'>
+              {t(opt.descriptionKey)}
+            </span>
+          </div>
+        </label>
+      ))}
+    </div>
+  )
+}

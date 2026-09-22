@@ -5479,6 +5479,35 @@
     "© 2025 Your Company. All rights reserved.": "© 2025 Ваша Компания. Все права защищены.",
     "、": ", ",
     "，": ", ",
-    "，and ": " и "
+    "，and ": " и ",
+    "Billing preference": "Настройка выставок",
+
+    "Billing preference updated": "Настройка выставок обновлена",
+
+    "Billing preference subscription first description": "Использовать оформление пока есть квота; переключаться на кошелёк при исчерпании.",
+
+    "Billing preference wallet first description": "Сначала кошелёк; возвращаться к оформлению при нехватке средств.",
+
+    "Billing preference subscription only description": "Никогда не трогать кошелёк, даже если оформление исчерпано.",
+
+    "Billing preference wallet only description": "Никогда не трогать оформление; всегда списывать с кошелька.",
+
+    "Current wallet balance": "Текущий баланс кошелька",
+
+    "Failed to update billing preference": "Не удалось обновить настройку выставок",
+
+    "Inherits from active subscription": "Наследует активное оформление",
+
+    "No active subscription, key uses wallet balance": "Нет активного оформления, ключ использует баланс кошелька",
+
+    "Subscription exhausted, wallet fallback active": "Оформление исчерпано, активен кошелёк",
+
+    "This key automatically uses your {source} balance. The hard limit on the key itself does not block requests when wallet has balance.": "Этот ключ автоматически списывает с вашего баланса {source}. Жёсткий лимит самого ключа не блокирует запросы при наличии средств в кошельке.",
+
+    "billing source label subscription": "оформление",
+
+    "billing source label wallet": "кошелёк"
+
+
   }
 }

@@ -5479,6 +5479,35 @@
     "© 2025 Your Company. All rights reserved.": "© 2025 Votre entreprise. Tous droits réservés.",
     "、": ", ",
     "，": ", ",
-    "，and ": " et "
+    "，and ": " et ",
+    "Billing preference": "Preference de facturation",
+
+    "Billing preference updated": "Preference de facturation mise a jour",
+
+    "Billing preference subscription first description": "Utiliser l'abonnement pendant qu'il a du quota; basculer vers le portefeuille une fois epuise.",
+
+    "Billing preference wallet first description": "Utiliser le portefeuille en premier; revenir a l'abonnement si le portefeuille est vide.",
+
+    "Billing preference subscription only description": "Ne jamais toucher le portefeuille, meme quand l'abonnement est epuise.",
+
+    "Billing preference wallet only description": "Ne jamais toucher l'abonnement; toujours facturer le portefeuille.",
+
+    "Current wallet balance": "Solde actuel du portefeuille",
+
+    "Failed to update billing preference": "Echec de la mise a jour de la preference de facturation",
+
+    "Inherits from active subscription": "Hriter de l'abonnement actif",
+
+    "No active subscription, key uses wallet balance": "Pas d'abonnement actif, la cle utilise le solde du portefeuille",
+
+    "Subscription exhausted, wallet fallback active": "Abonnement epuise, fallback portefeuille actif",
+
+    "This key automatically uses your {source} balance. The hard limit on the key itself does not block requests when wallet has balance.": "Cette cle utilise automatiquement votre solde {source}. La limite dure de la cle ne bloque pas les requetes quand le portefeuille a du solde.",
+
+    "billing source label subscription": "abonnement",
+
+    "billing source label wallet": "portefeuille"
+
+
   }
 }

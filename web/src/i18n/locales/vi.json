@@ -5479,6 +5479,35 @@
     "© 2025 Your Company. All rights reserved.": "© 2025 Công ty của bạn. Mọi quyền được bảo lưu.",
     "、": ", ",
     "，": ", ",
-    "，and ": " và "
+    "，and ": " và ",
+    "Billing preference": "Tuy chon thanh toan",
+
+    "Billing preference updated": "Da cap nhat tuy chon thanh toan",
+
+    "Billing preference subscription first description": "Dung goi dang ky khi con quota; tu dong chuyen sang vi khi het.",
+
+    "Billing preference wallet first description": "Uu tien vi; chuyen ve goi dang ky neu vi can.",
+
+    "Billing preference subscription only description": "Khong bao gio dung vao vi, ke ca khi goi can kiet.",
+
+    "Billing preference wallet only description": "Khong bao gio dung vao goi; luon tinh phi tu vi.",
+
+    "Current wallet balance": "So du vi hien tai",
+
+    "Failed to update billing preference": "Khong the cap nhat tuy chon thanh toan",
+
+    "Inherits from active subscription": "Ke thua tu goi dang hoat dong",
+
+    "No active subscription, key uses wallet balance": "Khong co goi hoat dong, key su dung so du vi",
+
+    "Subscription exhausted, wallet fallback active": "Goi da can, dang dung so du vi",
+
+    "This key automatically uses your {source} balance. The hard limit on the key itself does not block requests when wallet has balance.": "Key nay tu dong dung so du {source} cua ban. Gioi han cung cua key khong chan request khi vi con so du.",
+
+    "billing source label subscription": "goi dang ky",
+
+    "billing source label wallet": "vi"
+
+
   }
 }
