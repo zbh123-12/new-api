@@ -968,7 +968,7 @@ function NonAdminQuotaCard({
       )}
       <div className='mt-1 text-muted-foreground/90'>
         {t(
-          'This key automatically uses your {{source}} balance. The hard limit on the key itself does not block requests when wallet has balance.',
+          'This key automatically uses your {source} balance. The hard limit on the key itself does not block requests when wallet has balance.',
           { source: subtitleSource },
         )}
       </div>
