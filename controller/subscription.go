@@ -115,16 +115,16 @@ func SubscriptionRequestBalancePay(c *gin.Context) {
 		return
 	}
 
-	// Guard: prevent duplicate purchase of the same plan tier while active.
+	// Guard: one-subscription-per-user. Reject if the user already has any active subscription.
 	// Frontend also disables the button, but a direct API call would otherwise succeed.
-	if existing, gerr := model.GetActiveSubscriptionForPlan(userId, req.PlanId); gerr != nil {
+	// The model layer enforces the same rule transactionally; this is the fast-fail gate.
+	if hasActive, gerr := model.HasActiveUserSubscription(userId); gerr != nil {
 		common.ApiError(c, gerr)
 		return
-	} else if existing != nil {
+	} else if hasActive {
 		common.ApiErrorMsg(c, i18n.T(c, "Subscription.DuplicateActivePlan"))
 		return
 	}
-
 	if err := model.PurchaseSubscriptionWithBalance(userId, req.PlanId); err != nil {
 		common.ApiError(c, err)
 		return
@@ -342,10 +342,10 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 			"quota_reset_custom_seconds": req.Plan.QuotaResetCustomSeconds,
 			"allowed_models":             sanitizePlanAllowedModels(req.Plan.AllowedModels),
 			// Short-window request-count limits (5h / weekly)
-			"limit_count_5h":                     req.Plan.LimitCount5Hour,
-			"limit_count_weekly":                 req.Plan.LimitCountWeekly,
-			"limit_count_5h_window_seconds":      req.Plan.LimitCount5hWindowSeconds,
-			"limit_count_weekly_window_seconds": req.Plan.LimitCountWeeklyWindowSeconds,
+			"limit_count_5h":                     req.Plan.LimitQuota5Hour,
+			"limit_count_weekly":                 req.Plan.LimitQuotaWeekly,
+			"limit_count_5h_window_seconds":      req.Plan.LimitQuota5HourWindowSeconds,
+			"limit_count_weekly_window_seconds": req.Plan.LimitQuotaWeeklyWindowSeconds,
 			"updated_at":                         common.GetTimestamp(),
 		}
 		if req.Plan.AllowBalancePay != nil {

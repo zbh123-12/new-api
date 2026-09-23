@@ -1,26 +1,21 @@
 package service
-
 import (
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"sync"
-
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/types"
-
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
 )
-
 // ---------------------------------------------------------------------------
 // BillingSession — 统一计费会话
 // ---------------------------------------------------------------------------
-
 // BillingSession 封装单次请求的预扣费/结算/退款生命周期。
 // 实现 relaycommon.BillingSettler 接口。
 type BillingSession struct {
@@ -36,7 +31,6 @@ type BillingSession struct {
 	mu               sync.Mutex
 	tokenBypassed    bool // token 预扣被绕过(用 funding 兜底),Settle 时不再扣 token
 }
-
 // Settle 根据实际消耗额度进行结算。
 // 资金来源和令牌额度分两步提交：若资金来源已提交但令牌调整失败，
 // 会标记 fundingSettled 防止 Refund 对已提交的资金来源执行退款。
@@ -72,6 +66,16 @@ func (s *BillingSession) Settle(actualQuota int) error {
 				s.relayInfo.UserId, s.relayInfo.TokenId, delta, tokenErr.Error()))
 		}
 	}
+	// 2.5) 调整订阅窗口 quota (5h / 周)。仅在订阅资金来源时执行，避免与钱包计费混淆。
+	// apply=true 表示本次请求确实消耗了 quota(delta 非 0);apply=false (e.g. quota 为 0)
+	// 也需要调整,这样 Redis INCRBY 才与 PreConsume 的预扣额一致(都是 quota 维度)。
+	if s.funding.Source() == BillingSourceSubscription {
+		if subFunding, ok := s.funding.(*SubscriptionFunding); ok && subFunding.PlanId > 0 {
+			if plan, err := model.GetSubscriptionPlanById(subFunding.PlanId); err == nil && plan != nil {
+				model.ApplySubscriptionWindowQuotaUsage(s.relayInfo.UserId, plan, int64(delta))
+			}
+		}
+	}
 	// 3) 更新 relayInfo 上的订阅 PostDelta（用于日志）
 	if s.funding.Source() == BillingSourceSubscription {
 		s.relayInfo.SubscriptionPostDelta += int64(delta)
@@ -79,7 +83,6 @@ func (s *BillingSession) Settle(actualQuota int) error {
 	s.settled = true
 	return tokenErr
 }
-
 // Refund 退还所有预扣费，幂等安全，异步执行。
 func (s *BillingSession) Refund(c *gin.Context) {
 	s.mu.Lock()
@@ -89,13 +92,11 @@ func (s *BillingSession) Refund(c *gin.Context) {
 	}
 	s.refunded = true
 	s.mu.Unlock()
-
 	logger.LogInfo(c, fmt.Sprintf("用户 %d 请求失败, 返还预扣费（token_quota=%s, funding=%s）",
 		s.relayInfo.UserId,
 		logger.FormatQuota(s.tokenConsumed),
 		s.funding.Source(),
 	))
-
 	// 复制需要的值到闭包中
 	tokenId := s.relayInfo.TokenId
 	tokenKey := s.relayInfo.TokenKey
@@ -104,7 +105,6 @@ func (s *BillingSession) Refund(c *gin.Context) {
 	extraReserved := s.extraReserved
 	subscriptionId := s.relayInfo.SubscriptionId
 	funding := s.funding
-
 	gopool.Go(func() {
 		// 1) 退还资金来源
 		if err := funding.Refund(); err != nil {
@@ -116,6 +116,13 @@ func (s *BillingSession) Refund(c *gin.Context) {
 			}
 		}
 		// 2) 退还令牌额度
+		// 3) 退还订阅窗口 quota (5h / 周)。仅在订阅资金来源时执行。
+		// PreConsume 时已预扣,Refund 必须把 Redis INCRBY 的 quota 退掉,否则窗口会耗光。
+		if subFunding, ok := funding.(*SubscriptionFunding); ok && subFunding.preConsumed > 0 && subFunding.PlanId > 0 {
+			if plan, err := model.GetSubscriptionPlanById(subFunding.PlanId); err == nil && plan != nil {
+				model.SubscriptionWindowQuotaRefund(subFunding.userId, plan, subFunding.preConsumed)
+			}
+		}
 		if tokenConsumed > 0 && !isPlayground {
 			if err := model.IncreaseTokenQuota(tokenId, tokenKey, tokenConsumed); err != nil {
 				common.SysLog("error refunding token quota: " + err.Error())
@@ -123,14 +130,12 @@ func (s *BillingSession) Refund(c *gin.Context) {
 		}
 	})
 }
-
 // NeedsRefund 返回是否存在需要退还的预扣状态。
 func (s *BillingSession) NeedsRefund() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.needsRefundLocked()
 }
-
 func (s *BillingSession) needsRefundLocked() bool {
 	if s.settled || s.refunded || s.fundingSettled {
 		// fundingSettled 时资金来源已提交结算，不能再退预扣费
@@ -140,30 +145,25 @@ func (s *BillingSession) needsRefundLocked() bool {
 		return true
 	}
 	// 订阅可能在 tokenConsumed=0 时仍预扣了额度
-	if sub, ok := s.funding.(*SubscriptionFunding); ok && sub.preConsumed > 0 {
+	if sub, ok := s.funding.(*SubscriptionFunding); ok && sub.preConsumed > 0 { 
 		return true
 	}
 	return false
 }
-
 // GetPreConsumedQuota 返回实际预扣的额度。
 func (s *BillingSession) GetPreConsumedQuota() int {
 	return s.preConsumedQuota
 }
-
 func (s *BillingSession) Reserve(targetQuota int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
 	if s.settled || s.refunded || s.trusted || targetQuota <= s.preConsumedQuota {
 		return nil
 	}
-
 	delta := targetQuota - s.preConsumedQuota
 	if delta <= 0 {
 		return nil
 	}
-
 	if err := s.reserveFunding(delta); err != nil {
 		return err
 	}
@@ -171,23 +171,19 @@ func (s *BillingSession) Reserve(targetQuota int) error {
 		s.rollbackFundingReserve(delta)
 		return err
 	}
-
 	s.preConsumedQuota += delta
 	s.tokenConsumed += delta
 	s.extraReserved += delta
 	s.syncRelayInfo()
 	return nil
 }
-
 // ---------------------------------------------------------------------------
 // PreConsume — 统一预扣费入口（含信任额度旁路）
 // ---------------------------------------------------------------------------
-
 // preConsume 执行预扣费：信任检查 -> 令牌预扣 -> 资金来源预扣。
 // 任一步骤失败时原子回滚已完成的步骤。
 func (s *BillingSession) preConsume(c *gin.Context, quota int) *types.NewAPIError {
 	effectiveQuota := quota
-
 	// ---- 信任额度旁路 ----
 	if s.shouldTrust(c) {
 		s.trusted = true
@@ -196,7 +192,6 @@ func (s *BillingSession) preConsume(c *gin.Context, quota int) *types.NewAPIErro
 	} else if effectiveQuota > 0 {
 		logger.LogInfo(c, fmt.Sprintf("用户 %d 需要预扣费 %s (funding=%s)", s.relayInfo.UserId, logger.FormatQuota(effectiveQuota), s.funding.Source()))
 	}
-
 	// ---- 1) 预扣令牌额度 ----
 	if effectiveQuota > 0 {
 		if err := PreConsumeTokenQuota(s.relayInfo, effectiveQuota); err != nil {
@@ -216,7 +211,6 @@ func (s *BillingSession) preConsume(c *gin.Context, quota int) *types.NewAPIErro
 			s.tokenConsumed = effectiveQuota
 		}
 	}
-
 	// ---- 2) 预扣资金来源 ----
 	if err := s.funding.PreConsume(effectiveQuota); err != nil {
 		// 预扣费失败，回滚令牌额度
@@ -267,15 +261,11 @@ func (s *BillingSession) preConsume(c *gin.Context, quota int) *types.NewAPIErro
 		}
 		return types.NewError(err, types.ErrorCodeUpdateDataError, types.ErrOptionWithSkipRetry())
 	}
-
 	s.preConsumedQuota = effectiveQuota
-
 	// ---- 同步 RelayInfo 兼容字段 ----
 	s.syncRelayInfo()
-
 	return nil
 }
-
 func (s *BillingSession) reserveFunding(delta int) error {
 	switch funding := s.funding.(type) {
 	case *WalletFunding:
@@ -303,7 +293,6 @@ func (s *BillingSession) reserveFunding(delta int) error {
 		return types.NewError(fmt.Errorf("unsupported funding source: %s", s.funding.Source()), types.ErrorCodeUpdateDataError, types.ErrOptionWithSkipRetry())
 	}
 }
-
 func (s *BillingSession) rollbackFundingReserve(delta int) {
 	switch funding := s.funding.(type) {
 	case *WalletFunding:
@@ -318,7 +307,6 @@ func (s *BillingSession) rollbackFundingReserve(delta int) {
 		}
 	}
 }
-
 func (s *BillingSession) reserveToken(delta int) error {
 	if delta <= 0 || s.relayInfo.IsPlayground {
 		return nil
@@ -328,19 +316,16 @@ func (s *BillingSession) reserveToken(delta int) error {
 	}
 	return nil
 }
-
 // shouldTrust 统一信任额度检查，适用于钱包和订阅。
 func (s *BillingSession) shouldTrust(c *gin.Context) bool {
 	// 异步任务（ForcePreConsume=true）必须预扣全额，不允许信任旁路
 	if s.relayInfo.ForcePreConsume {
 		return false
 	}
-
 	trustQuota := common.GetTrustQuota()
 	if trustQuota <= 0 {
 		return false
 	}
-
 	// 检查令牌是否充足
 	tokenTrusted := s.relayInfo.TokenUnlimited
 	if !tokenTrusted {
@@ -350,7 +335,6 @@ func (s *BillingSession) shouldTrust(c *gin.Context) bool {
 	if !tokenTrusted {
 		return false
 	}
-
 	switch s.funding.Source() {
 	case BillingSourceWallet:
 		return s.relayInfo.UserQuota > trustQuota
@@ -364,7 +348,6 @@ func (s *BillingSession) shouldTrust(c *gin.Context) bool {
 		return false
 	}
 }
-
 // canBypassTokenQuota 判断当 token 预扣失败时是否可以「放过」，让 funding 兜底。
 // 仅当以下条件全部满足时才允许绕过：
 //  1. 非 playground 请求（playground 必须严格控制额度）
@@ -388,13 +371,11 @@ func (s *BillingSession) canBypassTokenQuota(c *gin.Context) bool {
 	}
 	return true
 }
-
 // syncRelayInfo 将 BillingSession 的状态同步到 RelayInfo 的兼容字段上。
 func (s *BillingSession) syncRelayInfo() {
 	info := s.relayInfo
 	info.FinalPreConsumedQuota = s.preConsumedQuota
 	info.BillingSource = s.funding.Source()
-
 	if sub, ok := s.funding.(*SubscriptionFunding); ok {
 		info.SubscriptionId = sub.subscriptionId
 		info.SubscriptionPreConsumed = sub.preConsumed + int64(s.extraReserved)
@@ -408,19 +389,15 @@ func (s *BillingSession) syncRelayInfo() {
 		info.SubscriptionPreConsumed = 0
 	}
 }
-
 // ---------------------------------------------------------------------------
 // NewBillingSession 工厂 — 根据计费偏好创建会话并处理回退
 // ---------------------------------------------------------------------------
-
 // NewBillingSession 根据用户计费偏好创建 BillingSession，处理 subscription_first / wallet_first 的回退。
 func NewBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preConsumedQuota int) (*BillingSession, *types.NewAPIError) {
 	if relayInfo == nil {
 		return nil, types.NewError(fmt.Errorf("relayInfo is nil"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
 	}
-
 	pref := common.NormalizeBillingPreference(relayInfo.UserSetting.BillingPreference)
-
 	// 钱包路径需要先检查用户额度
 	tryWallet := func() (*BillingSession, *types.NewAPIError) {
 		userQuota, err := model.GetUserQuota(relayInfo.UserId, false)
@@ -440,7 +417,6 @@ func NewBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preCons
 				types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
 		}
 		relayInfo.UserQuota = userQuota
-
 		session := &BillingSession{
 			relayInfo: relayInfo,
 			funding:   &WalletFunding{userId: relayInfo.UserId},
@@ -450,7 +426,6 @@ func NewBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preCons
 		}
 		return session, nil
 	}
-
 	trySubscription := func() (*BillingSession, *types.NewAPIError) {
 		subConsume := int64(preConsumedQuota)
 		if subConsume <= 0 {
@@ -472,7 +447,6 @@ func NewBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preCons
 		}
 		return session, nil
 	}
-
 	switch pref {
 	case "subscription_only":
 		return trySubscription()

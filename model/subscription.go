@@ -202,10 +202,10 @@ type SubscriptionPlan struct {
 	// Short-window request-count limits (5h + weekly).
 	// 0 = unlimited for that window. Counts are tracked in Redis under
 	// sub:rl:{5h|weekly}:{user_id}:{plan_id} with TTL = window_seconds.
-	LimitCount5Hour         int64 `json:"limit_count_5h" gorm:"type:bigint;not null;default:0"`
-	LimitCountWeekly        int64 `json:"limit_count_weekly" gorm:"type:bigint;not null;default:0"`
-	LimitCount5hWindowSeconds     int64 `json:"limit_count_5h_window_seconds" gorm:"type:bigint;not null;default:18000"`
-	LimitCountWeeklyWindowSeconds int64 `json:"limit_count_weekly_window_seconds" gorm:"type:bigint;not null;default:604800"`
+	LimitQuota5Hour         int64 `json:"limit_count_5h" gorm:"column:limit_count_5h;type:bigint;not null;default:0"`
+	LimitQuotaWeekly        int64 `json:"limit_count_weekly" gorm:"column:limit_count_weekly;type:bigint;not null;default:0"`
+	LimitQuota5HourWindowSeconds     int64 `json:"limit_count_5h_window_seconds" gorm:"column:limit_count_5h_window_seconds;type:bigint;not null;default:18000"`
+	LimitQuotaWeeklyWindowSeconds int64 `json:"limit_count_weekly_window_seconds" gorm:"column:limit_count_weekly_window_seconds;type:bigint;not null;default:604800"`
 
 	// AllowedModels is a comma-separated allow-list of model names that this
 	// subscription grants access to. Empty means "no restriction" — all models
@@ -871,6 +871,15 @@ func PurchaseSubscriptionWithBalance(userId int, planId int) error {
 	if userId <= 0 || planId <= 0 {
 		return errors.New("invalid userId or planId")
 	}
+	// One-subscription-per-user rule: reject the purchase if the user already
+	// has an active subscription. The caller must cancel / expire the existing
+	// subscription before buying a new one. The same check runs in the controller
+	// for fast-fail (without a DB write) — this is the authoritative gate.
+	if hasActive, err := HasActiveUserSubscription(userId); err != nil {
+		return fmt.Errorf("check existing subscription failed: %w", err)
+	} else if hasActive {
+		return errors.New("user already has an active subscription; cancel or wait for expiry first")
+	}
 
 	var logPlanTitle string
 	var logMoney float64
@@ -1082,8 +1091,8 @@ func buildSubscriptionSummaries(subs []UserSubscription) []SubscriptionSummary {
 		if plan, err := GetSubscriptionPlanById(subCopy.PlanId); err == nil && plan != nil {
 			planCache[plan.Id] = *plan
 			entry.Plan = plan
-			entry.WindowLimit5h = plan.LimitCount5Hour
-			entry.WindowLimitWeek = plan.LimitCountWeekly
+			entry.WindowLimit5h = plan.LimitQuota5Hour
+			entry.WindowLimitWeek = plan.LimitQuotaWeekly
 		}
 		result = append(result, entry)
 	}
@@ -1569,7 +1578,7 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			}
 			// Short-window limit (Redis 5h / weekly counter). Atomic with the pre-consume
 			// below: exceeded => return BEFORE creating the pre-consume row.
-			if err := CheckSubscriptionWindowLimits(userId, plan); err != nil {
+			if err := CheckSubscriptionWindowLimits(userId, plan, amount); err != nil {
 				return err
 			}
 			usedBefore := sub.AmountUsed
@@ -1820,7 +1829,20 @@ func subscriptionWindowKey(window string, userId, planId int) string {
 // subscriptionWindowCount increments the Redis counter for the window and returns
 // the count after increment. If this is the first INCR (count == 1) the TTL is set.
 // Returns (count, ok). If Redis is unavailable, ok=false and caller should fail open.
-func subscriptionWindowCount(window string, userId, planId int, ttlSeconds int64) (int64, bool) {
+// subscriptionWindowQuotaIncr atomically increments the Redis counter for a window
+// by `delta` quota units (positive or negative). Negative deltas act as DECRBY —
+// used for rollback when a pre-call reservation must be undone (e.g., the request
+// fails after PreConsume). If the counter was just created, the TTL is set on the
+// first INCRBY. Returns (newCount, ok). If Redis is unavailable, ok=false and
+// the caller should fail open.
+//
+// Quota semantics: the counter stores consumed quota (token units converted via
+// QuotaPerUnit), NOT per-request counts. This is the unified quota model for
+// subscription window limits.
+func subscriptionWindowQuotaIncr(window string, userId, planId int, delta int64, ttlSeconds int64) (int64, bool) {
+	if delta == 0 {
+		return 0, true // no-op
+	}
 	if !common.RedisEnabled || common.RDB == nil {
 		return 0, false
 	}
@@ -1828,40 +1850,60 @@ func subscriptionWindowCount(window string, userId, planId int, ttlSeconds int64
 	defer cancel()
 	key := subscriptionWindowKey(window, userId, planId)
 	pipe := common.RDB.Pipeline()
-	incr := pipe.Incr(ctx, key)
+	incr := pipe.IncrBy(ctx, key, delta)
 	pipe.Expire(ctx, key, time.Duration(ttlSeconds)*time.Second)
 	if _, err := pipe.Exec(ctx); err != nil {
-		common.SysLog(fmt.Sprintf("subscription window limit redis pipeline failed: %s", err.Error()))
+		common.SysLog(fmt.Sprintf("subscription window quota redis pipeline failed: %s", err.Error()))
 		return 0, false
 	}
 	return incr.Val(), true
 }
-
 // subscriptionWindowDecrement rolls back the INCR when the limit is exceeded so the
 // counter does not overshoot (best-effort).
-func subscriptionWindowDecrement(window string, userId, planId int) {
+// subscriptionWindowQuotaDecr decrements the Redis counter for a window by `delta`
+// quota units. Used to roll back a pre-call reservation that should not have been
+// charged (e.g., a 5h reservation that was later rejected by the weekly check).
+// Best-effort: failure is logged but does not propagate.
+func subscriptionWindowQuotaDecr(window string, userId, planId int, delta int64) {
+	if delta <= 0 {
+		return
+	}
 	if !common.RedisEnabled || common.RDB == nil {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	if _, err := common.RDB.Decr(ctx, subscriptionWindowKey(window, userId, planId)).Result(); err != nil {
-		common.SysLog(fmt.Sprintf("subscription window limit redis decr failed: %s", err.Error()))
+	if _, err := common.RDB.DecrBy(ctx, subscriptionWindowKey(window, userId, planId), delta).Result(); err != nil {
+		common.SysLog(fmt.Sprintf("subscription window quota redis decrby failed: %s", err.Error()))
 	}
 }
-
 // CheckSubscriptionWindowLimits enforces the per-plan request-count limits for both
 // the 5h and weekly windows. It increments Redis counters atomically and returns
 // ErrSubscriptionWindowLimitExceeded if either window is full. If Redis is
 // unavailable the check is skipped (fail open) — only logs a warning.
-func CheckSubscriptionWindowLimits(userId int, plan *SubscriptionPlan) error {
+// CheckSubscriptionWindowLimits reserves `preCallDelta` quota units in the per-plan
+// Redis window and returns ErrSubscriptionWindowLimitExceeded if either the 5h or
+// weekly counter would exceed the plan's LimitQuota. The reservation is rolled
+// back (DECRBY) if the check fails, so failed requests do not consume quota.
+// If Redis is unavailable the check is skipped (fail open) — only logs.
+//
+// preCallDelta is the estimated quota the caller intends to reserve for this
+// request. The function atomically INCRBYs both 5h and weekly windows by this
+// amount and validates the resulting totals against the plan limits.
+//
+// Quota semantics: delta is in quota units (not request counts). Callers
+// typically convert from estimated tokens via QuotaPerUnit before calling.
+func CheckSubscriptionWindowLimits(userId int, plan *SubscriptionPlan, preCallDelta int64) error {
 	if plan == nil || userId <= 0 {
 		return nil
 	}
-	if plan.LimitCount5Hour <= 0 && plan.LimitCountWeekly <= 0 {
+	if preCallDelta <= 0 {
 		return nil
 	}
- 
+	if plan.LimitQuota5Hour <= 0 && plan.LimitQuotaWeekly <= 0 {
+		return nil
+	}
+
 	check := func(window string, limit, ttlSeconds int64) error {
 		if limit <= 0 {
 			return nil
@@ -1873,24 +1915,65 @@ func CheckSubscriptionWindowLimits(userId int, plan *SubscriptionPlan) error {
 				ttlSeconds = SubWindow5HourSeconds
 			}
 		}
-		count, ok := subscriptionWindowCount(window, userId, plan.Id, ttlSeconds)
+		count, ok := subscriptionWindowQuotaIncr(window, userId, plan.Id, preCallDelta, ttlSeconds)
 		if !ok {
 			return nil // fail open
 		}
 		if count > limit {
-			subscriptionWindowDecrement(window, userId, plan.Id)
-			return fmt.Errorf("%w: %s limit=%d used=%d", ErrSubscriptionWindowLimitExceeded, window, limit, count-1)
+			subscriptionWindowQuotaDecr(window, userId, plan.Id, preCallDelta)
+			return fmt.Errorf("%w: %s limit=%d used=%d", ErrSubscriptionWindowLimitExceeded, window, limit, count-preCallDelta)
 		}
 		return nil
 	}
 
-	if err := check("5h", plan.LimitCount5Hour, plan.LimitCount5hWindowSeconds); err != nil {
+	if err := check("5h", plan.LimitQuota5Hour, plan.LimitQuota5HourWindowSeconds); err != nil {
 		return err
 	}
-	if err := check("weekly", plan.LimitCountWeekly, plan.LimitCountWeeklyWindowSeconds); err != nil {
-		// roll back the 5h increment so the failed request does not burn both quotas
-		subscriptionWindowDecrement("5h", userId, plan.Id)
+	if err := check("weekly", plan.LimitQuotaWeekly, plan.LimitQuotaWeeklyWindowSeconds); err != nil {
+		// roll back the 5h reservation so the failed request does not burn both quotas
+		subscriptionWindowQuotaDecr("5h", userId, plan.Id, preCallDelta)
 		return err
 	}
 	return nil
+}
+
+// ApplySubscriptionWindowQuotaUsage adjusts the per-plan Redis window counters by
+// `delta` quota units after the actual quota consumed by a request is known.
+// Called from BillingSession.Settle. Positive delta means more quota was used
+// than the pre-call reservation (catch up). Negative delta means less was used
+// (refund the difference from the reservation).
+//
+// Best-effort: failure (Redis down) is logged and skipped — the upstream quota
+// deduction is the source of truth, the Redis counter is only an enforcement
+// hint for short-window checks.
+func ApplySubscriptionWindowQuotaUsage(userId int, plan *SubscriptionPlan, delta int64) {
+	if plan == nil || delta == 0 || userId <= 0 {
+		return
+	}
+	adjust := func(window string, limit, ttlSeconds int64) {
+		if limit <= 0 {
+			return
+		}
+		if ttlSeconds <= 0 {
+			if window == "weekly" {
+				ttlSeconds = SubWindowWeeklySeconds
+			} else {
+				ttlSeconds = SubWindow5HourSeconds
+			}
+		}
+		_, _ = subscriptionWindowQuotaIncr(window, userId, plan.Id, delta, ttlSeconds)
+	}
+	adjust("5h", plan.LimitQuota5Hour, plan.LimitQuota5HourWindowSeconds)
+	adjust("weekly", plan.LimitQuotaWeekly, plan.LimitQuotaWeeklyWindowSeconds)
+}
+
+// SubscriptionWindowQuotaRefund fully reverses a pre-call reservation made via
+// CheckSubscriptionWindowLimits. Called from BillingSession.Refund when the
+// upstream request errored after PreConsume but before Settle succeeded.
+// Always decrements by `preCallDelta` (the original reservation amount).
+func SubscriptionWindowQuotaRefund(userId int, plan *SubscriptionPlan, preCallDelta int64) {
+	if plan == nil || preCallDelta <= 0 || userId <= 0 {
+		return
+	}
+	ApplySubscriptionWindowQuotaUsage(userId, plan, -preCallDelta)
 }
