@@ -28,6 +28,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { useIsAdmin } from '@/hooks/use-admin'
 import { useMediaQuery } from '@/hooks'
 import { toIntlLocale } from '@/i18n/languages'
 
@@ -59,6 +60,7 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
   const { t, i18n } = useTranslation()
   const shouldReduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
+  const isAdmin = useIsAdmin()
   const justNowLabel = t('Just now')
   const staleAccessThreshold = dayjs(now).subtract(3, 'month').valueOf()
   return [
@@ -125,6 +127,11 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
       id: 'quota',
       accessorKey: 'remain_quota',
       header: t('Quota'),
+      // Non-admin users can't set key quota directly; the backend always
+      // mirrors the active subscription's remaining quota onto the key.
+      // Showing it here is misleading. Hide the column for non-admin views.
+      enableHiding: !isAdmin,
+      meta: { mobileHidden: true, hiddenFor: !isAdmin },
       cell: ({ row }) => {
         const apiKey = row.original
         if (apiKey.unlimited_quota) {
@@ -174,6 +181,11 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
     {
       accessorKey: 'group',
       header: t('Group'),
+      // Non-admin users can't pick a group; the backend pins every key to
+      // the default group (or whatever the active subscription dictates).
+      // Show this column only to admin views.
+      enableHiding: !isAdmin,
+      meta: { mobileHidden: true, hiddenFor: !isAdmin },
       cell: ({ row }) => {
         const apiKey = row.original
         const group = row.getValue('group') as string
@@ -186,7 +198,6 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
         )
       },
       size: 220,
-      meta: { mobileHidden: true },
     },
     {
       id: 'model_limits',

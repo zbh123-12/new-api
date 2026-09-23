@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useIsAdmin } from '@/hooks/use-admin'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { formatQuota } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -190,7 +191,12 @@ export function ApiKeysTable() {
   const { t } = useTranslation()
   const { refreshTrigger } = useApiKeys()
   const [now, setNow] = useState(() => Date.now())
-  const columns = useApiKeysColumns(now)
+  const isAdmin = useIsAdmin()
+  const allColumns = useApiKeysColumns(now)
+  // Drop columns marked as admin-only when the viewer is not an admin.
+  const columns = isAdmin
+    ? allColumns
+    : allColumns.filter((c) => !(c.meta as { hiddenFor?: boolean } | undefined)?.hiddenFor)
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
