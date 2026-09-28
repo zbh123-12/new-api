@@ -253,6 +253,15 @@ func InitLogDB() (err error) {
 func migrateDB() error {
 	// Migrate price_amount column from float/double to decimal for existing tables
 	migrateSubscriptionPlanPriceAmount()
+	// Enforce one-active-subscription-per-user at the database layer so the
+	// invariant holds even if the application-level guards in
+	// PurchaseSubscriptionWithBalance are bypassed. Safe to run on a clean
+	// install (no-op dedup) and on existing databases (dedup first, then
+	// install the partial unique index).
+	if err := migrateUserSubscriptionUniqueActiveIndex(); err != nil {
+		return err
+	}
+
 	// Migrate model_limits column from varchar to text for existing tables
 	if err := migrateTokenModelLimitsToText(); err != nil {
 		return err

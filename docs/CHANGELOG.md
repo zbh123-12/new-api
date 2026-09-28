@@ -4,6 +4,47 @@
 Recent changes (newest first). Generated from git log + working tree diff on 2026-09-21.
 
 
+## Phase 2.3 — 2026-09-28: 一用户一套餐的 DB 层强约束
+
+### 背景
+应用层(controller fast-fail + `PurchaseSubscriptionWithBalance` 事务内再查一次)已经有两道防护,
+但绕过这两道(直接 SQL、第三方 webhook、未来新增的购买路径)仍然可能让同一用户出现多条
+`status='active'` 记录。本次提交把"一用户一套餐"的不变式下沉到数据库层。
+
+### 改动
+- 新增 `model/user_subscription_unique_active_index.go`:
+  - `migrateUserSubscriptionUniqueActiveIndex()` — 启动时由 `migrateDB()` 自动调用,
+    两步幂等迁移:
+    1. `dedupeUserSubscriptionsActive()` — 同 user 多条 active 时,只保留 `max(id)` 一条,
+       其余标 `cancelled`。MySQL 用 derived-table JOIN,SQLite/PostgreSQL 用 `NOT IN` 子查询。
+    2. `ensureUserSubscriptionActiveUniqueIndex()` — 三库兼容:
+       - SQLite/PostgreSQL:`CREATE UNIQUE INDEX IF NOT EXISTS idx_user_sub_one_active
+         ON user_subscriptions(user_id) WHERE status = '\''active'\''`
+       - MySQL(无 partial index):加 STORED generated column `active_user_id`
+         (`active`→1,否则 NULL) + `UNIQUE(user_id, active_user_id)`,
+         NULL 不参与唯一性,所以非 active 行不受限。
+- `model/main.go` 的 `migrateDB()` 在 `migrateSubscriptionPlanPriceAmount()` 之后挂上。
+- 新增 `model/user_subscription_unique_active_index_test.go`(6 个 case,SQLite):
+  dedupe 保留 max(id)、稳态空跑、约束阻塞第二次 active、允许多条非 active 共存、
+  重复跑空操作、端到端带脏数据起步。
+
+### 验证
+- 6/6 unit test PASS。
+- 重启 `calciumion/new-api:local` 后,`pg_indexes` 多出:
+  ```
+  idx_user_sub_one_active | CREATE UNIQUE INDEX ... USING btree (user_id) WHERE ((status)::text = '\''active'\'')
+  ```
+- 原 user_id=1 有 3 条 active 记录(脏数据),迁移后只保留 id=73(`max(id)`),id=67、72 标 cancelled。
+- `INSERT ... status='\''active'\''` 第二条 active for user_id=1 → DB 拒绝:
+  `ERROR: duplicate key value violates unique constraint "idx_user_sub_one_active"`
+- 现有用户 (12345678 / id=23, Ultra 套餐) API 正常,root (id=1) `/api/subscription/self` 正常。
+
+### 回退
+```bash
+git revert <sha>                              # 撤销整个 commit
+DROP INDEX idx_user_sub_one_active;           # 手动回退 partial index(只 PostgreSQL/SQLite)
+```
+
 ## Phase 2.2 — 2026-09-22: 非管理员 key 抽屉改成状态卡片 + 计费偏好单选
 
 ### 改动

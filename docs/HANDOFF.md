@@ -77,16 +77,23 @@
 - 失败路径 Refund:wallet + sub + window 三方回滚
 - Redis down → fail-open
 - Window seconds 最小 60 秒(防 typo)
-- 一用户一套餐(双层防护 app 层已加,DB 层待补)
+- 一用户一套餐(双层防护 app 层 + DB 层 partial unique index 均已加)
 
 
 ## 7. 待办事项(按优先级)
 
-### 7.1 DB 层 unique partial index(重要)
-位置:model/main.go 的 AutoMigrate 之后,需要三库兼容:
-SQLite / PostgreSQL:CREATE UNIQUE INDEX user_active_sub ON user_subscriptions(user_id) WHERE status=active;
-MySQL(无 partial index,用 generated column):ALTER TABLE user_subscriptions ADD COLUMN is_active TINYINT GENERATED ALWAYS AS (CASE WHEN status=active THEN 1 ELSE NULL END) STORED;CREATE UNIQUE INDEX user_active_sub ON user_subscriptions(user_id, is_active);
-参考:model/main.go 看 AutoMigrate 模式。
+### 7.1 DB 层 unique partial index(已完成 — Phase 2.3)
+位置:`model/user_subscription_unique_active_index.go`,在 `migrateDB()` 里挂在
+`migrateSubscriptionPlanPriceAmount()` 之后,幂等两步:
+1. `dedupeUserSubscriptionsActive()` — 同 user 多 active 时把旧标 cancelled,只留 max(id)
+2. `ensureUserSubscriptionActiveUniqueIndex()` — 三库兼容:
+   - SQLite/PostgreSQL:`CREATE UNIQUE INDEX IF NOT EXISTS idx_user_sub_one_active
+     ON user_subscriptions(user_id) WHERE status='\''active'\''`
+   - MySQL(无 partial):加 STORED generated column `active_user_id`
+     (`active`→1,否则 NULL)+ `UNIQUE(user_id, active_user_id)`。
+测试:`model/user_subscription_unique_active_index_test.go` 6 个 case 全过。
+实测:重启容器后 `pg_indexes` 出现 `idx_user_sub_one_active`,脏数据 user_id=1 自动清理,
+直接 SQL 第二次插入 active 被 `duplicate key value violates unique constraint` 拒绝。
 
 ### 7.2 Step 5: admin unlimited_quota=true 守卫
 controller/key.go 加守卫:非 admin 用户不能创建 unlimited quota key。状态:等用户决策(产品问题)。
