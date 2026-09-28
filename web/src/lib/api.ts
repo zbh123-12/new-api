@@ -90,6 +90,22 @@ export async function getUserSubscriptionSelf(): Promise<{
   return res.data
 }
 
+// getUserSubscriptionSelfAdmin fetches another user's SelfSubscriptionData via the
+// admin endpoint. Used by the admin window-quota page; the result shape is the
+// same as getUserSubscriptionSelf so the same component types can render it.
+export async function getUserSubscriptionSelfAdmin(
+  userId: number,
+): Promise<{
+  success: boolean
+  message?: string
+  data?: SelfSubscriptionData
+}> {
+  const res = await api.get(
+    `/api/subscription/admin/users/${userId}/window-usage`,
+  )
+  return res.data
+}
+
 // ============================================================================
 // System APIs
 // ============================================================================

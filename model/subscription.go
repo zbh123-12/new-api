@@ -1971,6 +1971,70 @@ func ApplySubscriptionWindowQuotaUsage(userId int, plan *SubscriptionPlan, delta
 // CheckSubscriptionWindowLimits. Called from BillingSession.Refund when the
 // upstream request errored after PreConsume but before Settle succeeded.
 // Always decrements by `preCallDelta` (the original reservation amount).
+// GetSubscriptionWindowUsage returns the live Redis quota counters for a user's
+// 5h and weekly subscription windows. Used by the user-facing UI to show
+// real-time progress bars and reset countdowns.
+//
+// Returns limit + current usage + reset-at unix timestamp for each window.
+// Limit values come from the user's active subscription's plan; usage and
+// reset come from Redis keys `sub:rl:5h:{uid}:{pid}` / `sub:rl:weekly:{uid}:{pid}`.
+// If the user has no active subscription, all limits are returned as 0.
+// If Redis is unavailable, usage/reset are returned as 0 (fail open).
+func GetSubscriptionWindowUsage(userId int) (
+	limit5h, usage5h int64,
+	resetUnix5h int64,
+	limitWeekly, usageWeekly int64,
+	resetUnixWeekly int64,
+) {
+	if userId <= 0 {
+		return 0, 0, 0, 0, 0, 0
+	}
+
+	hasActive, err := HasActiveUserSubscription(userId)
+	if err != nil || !hasActive {
+		return 0, 0, 0, 0, 0, 0
+	}
+	subs, err := GetAllActiveUserSubscriptions(userId)
+	if err != nil || len(subs) == 0 || subs[0].Plan == nil {
+		return 0, 0, 0, 0, 0, 0
+	}
+	plan := subs[0].Plan
+	limit5h = plan.LimitQuota5Hour
+	limitWeekly = plan.LimitQuotaWeekly
+
+	if !common.RedisEnabled || common.RDB == nil {
+		return limit5h, 0, 0, limitWeekly, 0, 0
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	if usage, ttl, ok := readQuotaCounter(ctx, userId, plan.Id, "5h"); ok {
+		usage5h = usage
+		if ttl > 0 {
+			resetUnix5h = time.Now().Unix() + int64(ttl.Seconds())
+		}
+	}
+	if usage, ttl, ok := readQuotaCounter(ctx, userId, plan.Id, "weekly"); ok {
+		usageWeekly = usage
+		if ttl > 0 {
+			resetUnixWeekly = time.Now().Unix() + int64(ttl.Seconds())
+		}
+	}
+	return
+}
+
+func readQuotaCounter(ctx context.Context, userId, planId int, window string) (int64, time.Duration, bool) {
+	key := subscriptionWindowKey(window, userId, planId)
+	val, err := common.RDB.Get(ctx, key).Int64()
+	if err != nil {
+		return 0, 0, false
+	}
+	ttl, err := common.RDB.TTL(ctx, key).Result()
+	if err != nil || ttl < 0 {
+		return val, 0, true
+	}
+	return val, ttl, true
+}
 func SubscriptionWindowQuotaRefund(userId int, plan *SubscriptionPlan, preCallDelta int64) {
 	if plan == nil || preCallDelta <= 0 || userId <= 0 {
 		return

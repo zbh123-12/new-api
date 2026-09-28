@@ -423,6 +423,42 @@ func AdminBindSubscription(c *gin.Context) {
 
 // ---- Admin: user subscription management ----
 
+
+// AdminGetUserWindowUsage returns the user's active subscription self-data
+// (including the live Redis-backed window quota) for admin inspection.
+// Admin-only.
+func AdminGetUserWindowUsage(c *gin.Context) {
+	userId, _ := strconv.Atoi(c.Param("id"))
+	if userId <= 0 {
+		common.ApiErrorMsg(c, "无效的用户ID")
+		return
+	}
+	settingMap, _ := model.GetUserSetting(userId, false)
+	pref := common.NormalizeBillingPreference(settingMap.BillingPreference)
+
+	allSubscriptions, err := model.GetAllUserSubscriptions(userId)
+	if err != nil {
+		allSubscriptions = []model.SubscriptionSummary{}
+	}
+	activeSubscriptions, err := model.GetAllActiveUserSubscriptions(userId)
+	if err != nil {
+		activeSubscriptions = []model.SubscriptionSummary{}
+	}
+
+	limit5h, usage5h, reset5h, limitWeekly, usageWeekly, resetWeekly := model.GetSubscriptionWindowUsage(userId)
+
+	common.ApiSuccess(c, gin.H{
+		"billing_preference":          pref,
+		"subscriptions":               activeSubscriptions,
+		"all_subscriptions":           allSubscriptions,
+		"window_limit_5h":             limit5h,
+		"window_usage_5h":             usage5h,
+		"window_reset_5h_unix":        reset5h,
+		"window_limit_weekly":         limitWeekly,
+		"window_usage_weekly":         usageWeekly,
+		"window_reset_weekly_unix":    resetWeekly,
+	})
+}
 func AdminListUserSubscriptions(c *gin.Context) {
 	userId, _ := strconv.Atoi(c.Param("id"))
 	if userId <= 0 {
