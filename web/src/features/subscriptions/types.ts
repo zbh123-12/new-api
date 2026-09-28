@@ -46,8 +46,12 @@ export const subscriptionPlanSchema = z.object({
   waffo_pancake_product_id: z.string().optional(),
   // Comma-separated allow-list of model names. Empty = no restriction.
   allowed_models: z.string().optional().default(''),
+  // Window quota (per-plan). Admin sets limit + window length; Redis tracks
+  // live usage for the user-facing MiniMax-style meter.
   limit_count_5h: z.number().optional().default(0),
   limit_count_weekly: z.number().optional().default(0),
+  limit_count_5h_window_seconds: z.number().optional().default(18000),
+  limit_count_weekly_window_seconds: z.number().optional().default(604800),
 })
 
 export type SubscriptionPlan = z.infer<typeof subscriptionPlanSchema>

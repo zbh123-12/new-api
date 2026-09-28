@@ -46,6 +46,10 @@ export function getPlanFormSchema(t: TFunction) {
     // MiniMax Token Plan style short-window request-count limits. 0 = unlimited.
     limit_count_5h: z.coerce.number().min(0).int().default(0),
     limit_count_weekly: z.coerce.number().min(0).int().default(0),
+    // Window durations. Defaults match historical behaviour (5h and 7d).
+    // Min 60s prevents typo-typed 0/1 values from disabling the window.
+    limit_count_5h_window_seconds: z.coerce.number().min(60).int().default(18000),
+    limit_count_weekly_window_seconds: z.coerce.number().min(60).int().default(604800),
     upgrade_group: z.string().optional(),
     downgrade_group: z.string().optional(),
     stripe_price_id: z.string().optional(),
@@ -75,6 +79,8 @@ export const PLAN_FORM_DEFAULTS: PlanFormValues = {
   total_amount: 0,
   limit_count_5h: 0,
   limit_count_weekly: 0,
+  limit_count_5h_window_seconds: 18000,
+  limit_count_weekly_window_seconds: 604800,
   upgrade_group: '',
   downgrade_group: '',
   stripe_price_id: '',
@@ -101,6 +107,8 @@ export function planToFormValues(plan: SubscriptionPlan): PlanFormValues {
     total_amount: Number(plan.total_amount || 0),
     limit_count_5h: Number(plan.limit_count_5h || 0),
     limit_count_weekly: Number(plan.limit_count_weekly || 0),
+    limit_count_5h_window_seconds: Number(plan.limit_count_5h_window_seconds || 18000),
+    limit_count_weekly_window_seconds: Number(plan.limit_count_weekly_window_seconds || 604800),
     upgrade_group: plan.upgrade_group || '',
     downgrade_group: plan.downgrade_group || '',
     stripe_price_id: plan.stripe_price_id || '',
@@ -130,6 +138,8 @@ export function formValuesToPlanPayload(values: PlanFormValues): PlanPayload {
       total_amount: Number(values.total_amount || 0),
       limit_count_5h: Number(values.limit_count_5h || 0),
       limit_count_weekly: Number(values.limit_count_weekly || 0),
+      limit_count_5h_window_seconds: Number(values.limit_count_5h_window_seconds || 18000),
+      limit_count_weekly_window_seconds: Number(values.limit_count_weekly_window_seconds || 604800),
       upgrade_group: values.upgrade_group || '',
       downgrade_group: values.downgrade_group || '',
       allowed_models: (values.allowed_models || []).join(','),

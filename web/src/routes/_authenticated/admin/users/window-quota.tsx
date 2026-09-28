@@ -14,7 +14,7 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
-import { Link, createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
@@ -26,18 +26,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { getUserSubscriptionSelfAdmin } from '@/lib/api'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
+import type { SelfSubscriptionData } from '@/features/subscriptions/types'
 
-type WindowUsageData = {
-  billing_preference?: string
-  subscriptions?: unknown[]
-  all_subscriptions?: unknown[]
-  window_limit_5h?: number
-  window_usage_5h?: number
-  window_reset_5h_unix?: number
-  window_limit_weekly?: number
-  window_usage_weekly?: number
-  window_reset_weekly_unix?: number
-}
+type WindowUsageData = SelfSubscriptionData
 
 const searchSchema = z.object({
   userId: z.coerce.number().int().positive().optional(),
@@ -68,12 +59,18 @@ function AdminWindowQuotaPage() {
 
   const enabled = Number.isFinite(userId) && userId > 0
 
-  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
+  const response = useQuery({
     queryKey: ['admin', 'user-window-quota', userId],
     queryFn: () => getUserSubscriptionSelfAdmin(userId),
     enabled,
     refetchInterval: enabled ? 30_000 : false,
   })
+  const data = response.data?.data as SelfSubscriptionData | undefined
+  const isLoading = response.isLoading
+  const isError = response.isError
+  const error = response.error
+  const refetch = response.refetch
+  const isFetching = response.isFetching
 
   return (
     <div className='mx-auto flex max-w-3xl flex-col gap-6 p-6'>
@@ -86,11 +83,9 @@ function AdminWindowQuotaPage() {
             {t('Inspect live Redis-backed window quota counters for any user.')}
           </p>
         </div>
-        <Button asChild variant='outline'>
-          <Link to='/users'>
-            <ArrowLeft className='mr-1 h-4 w-4' />
-            {t('Back to users')}
-          </Link>
+        <Button variant='outline' onClick={() => window.history.back()}>
+          <ArrowLeft className='mr-1 h-4 w-4' />
+          {t('Back')}
         </Button>
       </div>
 

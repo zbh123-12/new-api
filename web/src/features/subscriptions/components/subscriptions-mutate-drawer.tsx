@@ -475,6 +475,71 @@ export function SubscriptionsMutateDrawer({
               <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
                 <FormField
                   control={form.control}
+                  name='limit_count_5h_window_seconds'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {t('plan.field.window5hSeconds.label')}
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type='number'
+                          min={60}
+                          step={1}
+                          placeholder={t('plan.field.window5hSeconds.placeholder')}
+                          onChange={(e) =>
+                            field.onChange(
+                              Number.parseInt(e.target.value, 10) || 18000
+                            )
+                          }
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        {t(
+                          'plan.field.window5hSeconds.help',
+                        )}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name='limit_count_weekly_window_seconds'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {t('plan.field.windowWeeklySeconds.label')}
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type='number'
+                          min={60}
+                          step={1}
+                          placeholder={t('plan.field.windowWeeklySeconds.placeholder')}
+                          onChange={(e) =>
+                            field.onChange(
+                              Number.parseInt(e.target.value, 10) || 604800
+                            )
+                          }
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        {t(
+                          'plan.field.windowWeeklySeconds.help',
+                        )}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
+                <FormField
+                  control={form.control}
                   name='upgrade_group'
                   render={({ field }) => (
                     <FormItem>

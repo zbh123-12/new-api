@@ -54,7 +54,8 @@ const [selfSub, setSelfSub] = useState<UserSubscriptionRecord | null>(null)
         if (cancelled) return
         // /api/subscription/self returns { billing_preference, subscriptions: [...], all_subscriptions: [...] }.
         // Take the first active subscription record.
-          setSelfSubData((d2?.data as SelfSubscriptionData) ?? null)
+        const subs = d2?.data?.subscriptions
+        setSelfSubData((d2?.data as SelfSubscriptionData) ?? null)
         setSelfSub(
           Array.isArray(subs) && subs.length > 0
             ? (subs[0] as UserSubscriptionRecord)
@@ -97,7 +98,7 @@ const [selfSub, setSelfSub] = useState<UserSubscriptionRecord | null>(null)
               <div className="mt-1 text-lg font-semibold">
                 {selfSub.plan?.title || 'Plan #' + selfSub.subscription.plan_id}
               </div>
-              <SubscriptionWindowMeters data={selfSubData ?? { subscriptions: [], all_subscriptions: [] }} t={t} />
+              <SubscriptionWindowMeters data={selfSubData ?? { billing_preference: '', subscriptions: [], all_subscriptions: [] }} t={t} />
             </div>
           )}
           <SubscriptionPlansCard

@@ -244,6 +244,15 @@ func AdminCreateSubscriptionPlan(c *gin.Context) {
 		common.ApiErrorMsg(c, "自定义重置周期需大于0秒")
 		return
 	}
+
+	if req.Plan.LimitQuota5Hour > 0 && req.Plan.LimitQuota5HourWindowSeconds < 60 {
+		common.ApiErrorMsg(c, "5h 窗口秒数需至少 60 秒")
+		return
+	}
+	if req.Plan.LimitQuotaWeekly > 0 && req.Plan.LimitQuotaWeeklyWindowSeconds < 60 {
+		common.ApiErrorMsg(c, "周窗口秒数需至少 60 秒")
+		return
+	}
 	req.Plan.AllowedModels = sanitizePlanAllowedModels(req.Plan.AllowedModels)
 	err := model.DB.Create(&req.Plan).Error
 	if err != nil {
