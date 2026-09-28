@@ -153,6 +153,14 @@ export interface SelfSubscriptionData {
   billing_preference: string
   subscriptions: UserSubscriptionRecord[]
   all_subscriptions: UserSubscriptionRecord[]
+  // Window quota (read from Redis live counters). Filled by
+  // /api/subscription/self for the user-facing MiniMax-style meter.
+  window_limit_5h?: number
+  window_usage_5h?: number
+  window_reset_5h_unix?: number
+  window_limit_weekly?: number
+  window_usage_weekly?: number
+  window_reset_weekly_unix?: number
 }
 
 // ============================================================================

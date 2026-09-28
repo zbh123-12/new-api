@@ -27,7 +27,7 @@ import { SubscriptionPlansCard } from '@/features/wallet/components/subscription
 import { SubscriptionWindowMeters } from '@/features/wallet/components/subscription-window-meters'
 
 import { useTopupInfo } from '@/features/wallet/hooks/use-topup-info'
-import type { UserSubscriptionRecord } from '@/features/subscriptions/types'
+import type { SelfSubscriptionData, UserSubscriptionRecord } from '@/features/subscriptions/types'
 import { getUserSubscriptionSelf } from '@/lib/api'
 
 export const Route = createFileRoute('/_authenticated/plans/')({
@@ -38,7 +38,8 @@ function PlansPage() {
   const { t } = useTranslation()
   const authUser = useAuthStore((s) => s.auth.user)
   const { topupInfo } = useTopupInfo()
-  const [selfSub, setSelfSub] = useState<UserSubscriptionRecord | null>(null)
+const [selfSub, setSelfSub] = useState<UserSubscriptionRecord | null>(null)
+  const [selfSubData, setSelfSubData] = useState<SelfSubscriptionData | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
@@ -53,7 +54,7 @@ function PlansPage() {
         if (cancelled) return
         // /api/subscription/self returns { billing_preference, subscriptions: [...], all_subscriptions: [...] }.
         // Take the first active subscription record.
-        const subs = d2?.data?.subscriptions
+          setSelfSubData((d2?.data as SelfSubscriptionData) ?? null)
         setSelfSub(
           Array.isArray(subs) && subs.length > 0
             ? (subs[0] as UserSubscriptionRecord)
@@ -96,7 +97,7 @@ function PlansPage() {
               <div className="mt-1 text-lg font-semibold">
                 {selfSub.plan?.title || 'Plan #' + selfSub.subscription.plan_id}
               </div>
-              <SubscriptionWindowMeters sub={selfSub} t={t} />
+              <SubscriptionWindowMeters data={selfSubData ?? { subscriptions: [], all_subscriptions: [] }} t={t} />
             </div>
           )}
           <SubscriptionPlansCard

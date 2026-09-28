@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { api } from '@/lib/http-client'
+import type { SelfSubscriptionData } from '@/features/subscriptions/types'
 
 export {
   applyAuthBundle,
@@ -83,10 +84,7 @@ export interface UserSubscriptionSummary {
 export async function getUserSubscriptionSelf(): Promise<{
   success: boolean
   message?: string
-  data?: {
-    subscriptions?: UserSubscriptionSummary[]
-    all_subscriptions?: UserSubscriptionSummary[]
-  }
+  data?: SelfSubscriptionData
 }> {
   const res = await api.get('/api/subscription/self')
   return res.data

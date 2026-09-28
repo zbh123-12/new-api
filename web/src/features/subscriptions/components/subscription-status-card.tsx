@@ -21,12 +21,13 @@ import { useTranslation } from 'react-i18next'
 
 import { Link } from '@tanstack/react-router'
 
-import type { UserSubscriptionRecord } from '@/features/subscriptions/types'
+import type { SelfSubscriptionData, UserSubscriptionRecord } from '@/features/subscriptions/types'
 
 import { AllowedModelsList } from './allowed-models-list'
 import { SubscriptionWindowMeters } from '@/features/wallet/components/subscription-window-meters'
 
 interface SubscriptionStatusCardProps {
+  data: SelfSubscriptionData
   sub: UserSubscriptionRecord
 }
 
@@ -42,7 +43,7 @@ function formatExpiryDate(endTime: number | undefined): string {
   return yyyy + '-' + mm + '-' + dd + ' ' + hh + ':' + mi
 }
 
-export function SubscriptionStatusCard({ sub }: SubscriptionStatusCardProps) {
+export function SubscriptionStatusCard({ data, sub }: SubscriptionStatusCardProps) {
   const { t } = useTranslation()
   const title = sub.plan?.title ?? 'Plan #' + sub.subscription.plan_id
   const expiry = sub.subscription.end_time
@@ -82,7 +83,7 @@ export function SubscriptionStatusCard({ sub }: SubscriptionStatusCardProps) {
       </header>
 
       {/* Window meters: 5h + weekly */}
-      <SubscriptionWindowMeters sub={sub} t={t} />
+      <SubscriptionWindowMeters data={data} t={t} />
 
       {/* Allowed models */}
       <AllowedModelsList allowedModelsCsv={allowedModels} />

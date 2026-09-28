@@ -25,7 +25,7 @@ import { SectionPageLayout } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 
 import { SubscriptionStatusCard } from '@/features/subscriptions/components/subscription-status-card'
-import type { UserSubscriptionRecord } from '@/features/subscriptions/types'
+import type { SelfSubscriptionData, UserSubscriptionRecord } from '@/features/subscriptions/types'
 import { getUserSubscriptionSelf } from '@/lib/api'
 
 export const Route = createFileRoute('/_authenticated/plans/current')({
@@ -34,7 +34,7 @@ export const Route = createFileRoute('/_authenticated/plans/current')({
 
 function CurrentPlanPage() {
   const { t } = useTranslation()
-  const [selfSub, setSelfSub] = useState<UserSubscriptionRecord | null>(null)
+  const [selfSub, setSelfSub] = useState<SelfSubscriptionData | null>(null)
   const [loading, setLoading] = useState(true)
 
   // Self-sub fetch with retry. After purchase, the backend may need a brief moment
@@ -56,12 +56,12 @@ function CurrentPlanPage() {
           // so the page is never completely empty for returning users.
           const active = d?.data?.subscriptions
           const all = d?.data?.all_subscriptions
+          // We need the full SelfSubscriptionData (incl. live window quota from Redis),
+          // so build the wrapper from d.data, not just the first subscription entry.
           const pick =
-            Array.isArray(active) && active.length > 0
-              ? (active[0] as UserSubscriptionRecord)
-              : Array.isArray(all) && all.length > 0
-                ? (all[0] as UserSubscriptionRecord)
-                : null
+            d?.data && ((Array.isArray(active) && active.length > 0) || (Array.isArray(all) && all.length > 0))
+              ? (d.data as SelfSubscriptionData)
+              : null
           if (pick) {
             setSelfSub(pick)
             setLoading(false)
@@ -101,7 +101,10 @@ function CurrentPlanPage() {
               {t('Loading...')}
             </div>
           ) : selfSub ? (
-            <SubscriptionStatusCard sub={selfSub} />
+            <SubscriptionStatusCard
+              data={selfSub}
+              sub={selfSub.subscriptions?.[0] ?? selfSub.all_subscriptions?.[0] ?? null}
+            />
           ) : (
             <div className="bg-card space-y-6 rounded-xl border p-8 text-center sm:p-12">
               <div className="mx-auto max-w-md space-y-3">
