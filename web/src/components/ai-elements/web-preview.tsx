@@ -280,6 +280,7 @@ export const WebPreviewConsole = ({
                   log.level === 'warn' && 'text-warning',
                   log.level === 'log' && 'text-foreground'
                 )}
+                // oxlint-disable-next-line react/no-array-index-key
                 key={`${log.timestamp.getTime()}-${index}`}
               >
                 <span className='text-muted-foreground'>

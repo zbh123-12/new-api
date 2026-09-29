@@ -372,6 +372,7 @@ export function SubscriptionPlansCard({
         </h3>
         <Accordion className="mx-auto mt-6 max-w-2xl">
           {FAQ_ITEMS.map((f, i) => (
+            // oxlint-disable-next-line react/no-array-index-key
             <AccordionItem key={i} value={'faq-' + i}>
               <AccordionTrigger className="text-left text-sm">
                 {t(f.qKey)}

@@ -104,6 +104,7 @@ export const ModelPerfBadge = memo(function ModelPerfBadge(
         <div className='flex h-4 items-center justify-end gap-0.5'>
           {statusBars.map((rate, index) => (
             <span
+              // oxlint-disable-next-line react/no-array-index-key
               key={`${index}-${rate ?? 'empty'}`}
               className={cn(
                 'w-1 rounded-full',

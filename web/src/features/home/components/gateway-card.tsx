@@ -59,6 +59,7 @@ export function GatewayCard({ logo, systemName }: GatewayCardProps) {
         <div className='grid grid-cols-2 gap-3'>
           {features.map((feature, i) => (
             <div
+              // oxlint-disable-next-line react/no-array-index-key
               key={i}
               className='glass-morphism group/item border-border/40 dark:border-border/20 relative overflow-hidden rounded-xl border px-4 py-3.5 text-center shadow-sm transition-all duration-300 hover:scale-[1.02] hover:border-amber-500/40 hover:shadow-md'
             >

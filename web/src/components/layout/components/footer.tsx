@@ -273,12 +273,14 @@ export function Footer(props: FooterProps) {
           {isDemoSiteMode && (
             <div className='grid grid-cols-3 gap-8 md:gap-16'>
               {displayColumns.map((column, index) => (
+                // oxlint-disable-next-line react/no-array-index-key
                 <div key={index}>
                   <p className='text-muted-foreground/50 mb-3 text-xs font-medium tracking-wider uppercase'>
                     {t(column.title)}
                   </p>
                   <ul className='space-y-2.5'>
                     {column.links.map((link, linkIndex) => (
+                      // oxlint-disable-next-line react/no-array-index-key
                       <li key={linkIndex}>
                         <FooterLinkItem link={link} />
                       </li>

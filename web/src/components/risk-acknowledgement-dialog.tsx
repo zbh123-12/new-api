@@ -247,6 +247,7 @@ export function RiskAcknowledgementDialog({
                   {normalizedRequiredTextParts.map((part, index) =>
                     part.type === 'static' ? (
                       <span
+                        // oxlint-disable-next-line react/no-array-index-key
                         key={`static-${index}`}
                         className='text-muted-foreground bg-background/70 border-border w-fit rounded-md border px-2 py-1.5 font-mono text-sm select-none'
                       >
@@ -254,6 +255,7 @@ export function RiskAcknowledgementDialog({
                       </span>
                     ) : (
                       <Textarea
+                        // oxlint-disable-next-line react/no-array-index-key
                         key={`input-${index}`}
                         value={typedTextParts[part.inputIndex ?? 0] ?? ''}
                         onChange={(event) =>

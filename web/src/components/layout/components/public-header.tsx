@@ -221,6 +221,7 @@ export function PublicHeader(props: PublicHeaderProps) {
                 if (link.external) {
                   return (
                     <a
+                      // oxlint-disable-next-line react/no-array-index-key
                       key={i}
                       href={link.href}
                       target='_blank'
@@ -239,6 +240,7 @@ export function PublicHeader(props: PublicHeaderProps) {
                 }
                 return (
                   <Link
+                    // oxlint-disable-next-line react/no-array-index-key
                     key={i}
                     to={link.href}
                     disabled={link.disabled}
@@ -364,6 +366,7 @@ export function PublicHeader(props: PublicHeaderProps) {
               if (link.external) {
                 return (
                   <a
+                    // oxlint-disable-next-line react/no-array-index-key
                     key={i}
                     href={link.href}
                     target='_blank'
@@ -380,6 +383,7 @@ export function PublicHeader(props: PublicHeaderProps) {
               }
               return (
                 <Link
+                  // oxlint-disable-next-line react/no-array-index-key
                   key={i}
                   to={link.href}
                   disabled={link.disabled}

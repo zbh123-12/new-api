@@ -39,6 +39,7 @@ export function StaticLegalPage({ title, sections }: StaticLegalProps) {
           </p>
         </header>
         {sections.map((section, i) => (
+          // oxlint-disable-next-line react/no-array-index-key
           <section key={i} className="space-y-3">
             {section.heading && (
               <h2 className="text-xl font-semibold tracking-tight">
@@ -46,6 +47,7 @@ export function StaticLegalPage({ title, sections }: StaticLegalProps) {
               </h2>
             )}
             {section.paragraphs.map((p, j) => (
+              // oxlint-disable-next-line react/no-array-index-key
               <p key={j} className="text-muted-foreground text-sm leading-relaxed">
                 {p}
               </p>

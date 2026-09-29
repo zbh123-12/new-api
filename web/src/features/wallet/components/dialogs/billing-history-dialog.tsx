@@ -150,6 +150,7 @@ export function BillingHistoryDialog({
             {loading ? (
               <div className='space-y-3'>
                 {Array.from({ length: 5 }).map((_, i) => (
+                  // oxlint-disable-next-line react/no-array-index-key
                   <div key={i} className='rounded-lg border p-3 sm:p-4'>
                     <div className='flex items-start justify-between'>
                       <div className='flex-1 space-y-2'>

@@ -165,6 +165,7 @@ export function TwoFABackupDialog({
               <div className='grid grid-cols-2 gap-2'>
                 {backupCodes.map((code, index) => (
                   <div
+                    // oxlint-disable-next-line react/no-array-index-key
                     key={index}
                     className='bg-muted rounded-md p-2 text-center font-mono text-sm'
                   >

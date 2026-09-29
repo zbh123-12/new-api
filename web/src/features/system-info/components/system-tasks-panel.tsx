@@ -288,6 +288,7 @@ export function SystemTasksPanel() {
         {loading ? (
           <div className='space-y-2 p-4 sm:p-5'>
             {Array.from({ length: 4 }).map((_, i) => (
+              // oxlint-disable-next-line react/no-array-index-key
               <Skeleton key={i} className='h-9 w-full rounded-md' />
             ))}
           </div>

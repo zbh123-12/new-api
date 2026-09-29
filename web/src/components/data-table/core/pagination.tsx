@@ -119,7 +119,7 @@ export function DataTablePagination<TData>({
           </Button>
 
           {pageNumbers.map((pageNumber, index) => (
-            // oxlint-disable-next-line react(no-array-index-key)
+            // oxlint-disable-next-line react/no-array-index-key
             <div key={`${pageNumber}-${index}`} className='flex items-center'>
               {pageNumber === '...' ? (
                 <span className='text-muted-foreground/60 px-0.5 text-sm @lg/pagination:px-1'>

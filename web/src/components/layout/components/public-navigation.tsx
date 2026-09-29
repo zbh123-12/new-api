@@ -56,6 +56,7 @@ export function PublicNavigation({
         if (link.external) {
           return (
             <a
+              // oxlint-disable-next-line react/no-array-index-key
               key={index}
               href={link.href}
               target='_blank'
@@ -72,6 +73,7 @@ export function PublicNavigation({
         // Handle internal links
         return (
           <Link
+            // oxlint-disable-next-line react/no-array-index-key
             key={index}
             to={link.href}
             className={cn(

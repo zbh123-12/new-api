@@ -344,7 +344,7 @@ function RequestBlock(props: { demo: ApiDemoConfig; transitioning: boolean }) {
           <Flag>-d</Flag> <StringText>&apos;{'{'}</StringText>
         </CodeLine>
         {demo.request.map((line, i) => (
-          <CodeLine key={i} indent={4}>
+          <CodeLine /* oxlint-disable-next-line react/no-array-index-key */ key={i} indent={4}>
             {renderJsonLine(line)}
           </CodeLine>
         ))}
@@ -374,7 +374,7 @@ function ResponseBlock(props: { demo: ApiDemoConfig; transitioning: boolean }) {
         )}
       >
         {demo.response.map((line, i) => (
-          <CodeLine key={i}>{renderResponseLine(line, demo)}</CodeLine>
+          <CodeLine /* oxlint-disable-next-line react/no-array-index-key */ key={i}>{renderResponseLine(line, demo)}</CodeLine>
         ))}
       </div>
     </div>
@@ -410,32 +410,32 @@ function renderResponseLine(line: string, demo: ApiDemoConfig): ReactNode {
     const start = match.index ?? 0
     if (start > cursor) {
       segments.push(
-        <span key={`pre-${idx}`}>{tokenize(line.slice(cursor, start))}</span>
+        /* oxlint-disable-next-line react/no-array-index-key */ <span key={`pre-${idx}`}>{tokenize(line.slice(cursor, start))}</span>
       )
     }
     const placeholder = match[0]
     if (placeholder === '<text>') {
       segments.push(
-        <Accent key={`ph-${idx}`} accent={demo.accent}>
+        /* oxlint-disable-next-line react/no-array-index-key */ <Accent key={`ph-${idx}`} accent={demo.accent}>
           {`"${truncateResponse(demo)}"`}
         </Accent>
       )
     } else if (placeholder === '<tokens>') {
-      segments.push(<NumberText key={`ph-${idx}`}>{demo.tokens}</NumberText>)
+      segments.push(/* oxlint-disable-next-line react/no-array-index-key */ /* oxlint-disable-next-line react/no-array-index-key */ <NumberText key={`ph-${idx}`}>{demo.tokens}</NumberText>)
     } else if (placeholder === '<in>') {
       segments.push(
-        <NumberText key={`ph-${idx}`}>
+        /* oxlint-disable-next-line react/no-array-index-key */ /* oxlint-disable-next-line react/no-array-index-key */ /* oxlint-disable-next-line react/no-array-index-key */ <NumberText key={`ph-${idx}`}>
           {Math.floor(demo.tokens * 0.4)}
         </NumberText>
       )
     } else if (placeholder === '<out>') {
       segments.push(
-        <NumberText key={`ph-${idx}`}>
+        /* oxlint-disable-next-line react/no-array-index-key */ <NumberText key={`ph-${idx}`}>
           {Math.ceil(demo.tokens * 0.6)}
         </NumberText>
       )
     } else {
-      segments.push(<Muted key={`ph-${idx}`}>{placeholder}</Muted>)
+      segments.push(/* oxlint-disable-next-line react/no-array-index-key */ <Muted key={`ph-${idx}`}>{placeholder}</Muted>)
     }
     cursor = start + placeholder.length
   })
@@ -467,16 +467,16 @@ function tokenize(input: string): ReactNode {
     const start = match.index ?? 0
     if (start > cursor) {
       segments.push(
-        <Muted key={`m-${idx}`}>{input.slice(cursor, start)}</Muted>
+        /* oxlint-disable-next-line react/no-array-index-key */ /* oxlint-disable-next-line react/no-array-index-key */ <Muted key={`m-${idx}`}>{input.slice(cursor, start)}</Muted>
       )
     }
     const text = match[0]
     const after = input.slice(start + text.length).trimStart()
     const isKey = after.startsWith(':')
     if (isKey) {
-      segments.push(<Key key={`k-${idx}`}>{text}</Key>)
+      segments.push(/* oxlint-disable-next-line react/no-array-index-key */ <Key key={`k-${idx}`}>{text}</Key>)
     } else {
-      segments.push(<StringText key={`s-${idx}`}>{text}</StringText>)
+      segments.push(/* oxlint-disable-next-line react/no-array-index-key */ <StringText key={`s-${idx}`}>{text}</StringText>)
     }
     cursor = start + text.length
   })

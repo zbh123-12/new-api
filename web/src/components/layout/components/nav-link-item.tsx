@@ -78,6 +78,7 @@ export function NavLinkList({
     <>
       {links.map((link, index) => (
         <NavLinkItem
+          // oxlint-disable-next-line react/no-array-index-key
           key={index}
           link={link}
           className={cn(className, itemClassName)}

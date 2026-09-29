@@ -667,6 +667,7 @@ function VisualTierCard({
         ) : (
           tier.conditions.map((condition, conditionIndex) => (
             <ConditionRow
+              // oxlint-disable-next-line react/no-array-index-key
               key={conditionIndex}
               condition={condition}
               onChange={(next) => handleConditionChange(conditionIndex, next)}
@@ -849,6 +850,7 @@ function VisualEditor({ visualConfig, onChange }: VisualEditorProps) {
       </p>
       {config.tiers.map((tier, index) => (
         <VisualTierCard
+          // oxlint-disable-next-line react/no-array-index-key
           key={index}
           tier={tier}
           index={index}
@@ -1241,6 +1243,7 @@ function RuleGroupCard({
       <div className='space-y-2'>
         {group.conditions.map((condition, conditionIndex) => (
           <RuleConditionRow
+            // oxlint-disable-next-line react/no-array-index-key
             key={conditionIndex}
             condition={condition}
             onChange={(next) => handleConditionChange(conditionIndex, next)}
@@ -1837,6 +1840,7 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
               <>
                 {requestRuleGroups.map((group, groupIndex) => (
                   <RuleGroupCard
+                    // oxlint-disable-next-line react/no-array-index-key
                     key={groupIndex}
                     group={group}
                     index={groupIndex}

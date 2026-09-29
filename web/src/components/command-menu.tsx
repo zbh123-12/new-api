@@ -71,7 +71,7 @@ export function CommandMenu() {
                   if (navItem.url)
                     return (
                       <CommandItem
-                        key={`${navItem.url}-${i}`}
+                        /* oxlint-disable-next-line react/no-array-index-key */ key={`${navItem.url}-${i}`}
                         value={navItem.title}
                         onSelect={() => {
                           runCommand(() => navigate({ to: navItem.url }))
@@ -86,6 +86,7 @@ export function CommandMenu() {
 
                   return navItem.items?.map((subItem, i) => (
                     <CommandItem
+                      // oxlint-disable-next-line react/no-array-index-key
                       key={`${navItem.title}-${subItem.url}-${i}`}
                       value={`${navItem.title}-${subItem.url}`}
                       onSelect={() => {

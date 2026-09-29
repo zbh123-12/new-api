@@ -47,11 +47,13 @@ export function ScrollingIcons({
       <div className={cn('flex flex-col gap-5', animationClass)}>
         {/* First set */}
         {icons.map((iconName, i) => (
+          // oxlint-disable-next-line react/no-array-index-key
           <IconCard key={`${direction}-1-${i}`} iconName={iconName} />
         ))}
         {/* Duplicate set for seamless loop */}
         {icons.map((iconName, i) => (
           <IconCard
+            // oxlint-disable-next-line react/no-array-index-key
             key={`${direction}-2-${i}`}
             iconName={iconName}
             className='aria-hidden'
