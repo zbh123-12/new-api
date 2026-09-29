@@ -2,7 +2,6 @@ package minimax
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +9,7 @@ import (
 	"strings"
 
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
@@ -118,7 +118,7 @@ func handleTTSResponse(c *gin.Context, resp *http.Response, info *relaycommon.Re
 
 	// Parse response
 	var minimaxResp MiniMaxTTSResponse
-	if unmarshalErr := json.Unmarshal(body, &minimaxResp); unmarshalErr != nil {
+	if unmarshalErr := common.Unmarshal(body, &minimaxResp); unmarshalErr != nil {
 		return nil, types.NewErrorWithStatusCode(
 			fmt.Errorf("failed to unmarshal minimax TTS response: %w", unmarshalErr),
 			types.ErrorCodeBadResponseBody,

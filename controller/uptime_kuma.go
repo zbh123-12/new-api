@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/sync/errgroup"
+	"github.com/QuantumNous/new-api/common"
 )
 
 const (
@@ -51,7 +51,7 @@ func getAndDecode(ctx context.Context, client *http.Client, url string, dest int
 		return errors.New("non-200 status")
 	}
 
-	return json.NewDecoder(resp.Body).Decode(dest)
+	return common.DecodeJson(resp.Body, dest)
 }
 
 func fetchGroupData(ctx context.Context, client *http.Client, groupConfig map[string]interface{}) UptimeGroupResult {

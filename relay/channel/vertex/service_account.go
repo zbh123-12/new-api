@@ -3,7 +3,6 @@ package vertex
 import (
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"net/http"
@@ -11,6 +10,7 @@ import (
 	"strings"
 
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/service"
 
 	"github.com/bytedance/gopkg/cache/asynccache"
@@ -123,7 +123,7 @@ func exchangeJwtForAccessToken(signedJWT string, info *relaycommon.RelayInfo) (s
 	defer resp.Body.Close()
 
 	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := common.DecodeJson(resp.Body, &result); err != nil {
 		return "", err
 	}
 
@@ -166,7 +166,7 @@ func exchangeJwtForAccessTokenWithProxy(signedJWT string, proxy string) (string,
 	defer resp.Body.Close()
 
 	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := common.DecodeJson(resp.Body, &result); err != nil {
 		return "", err
 	}
 
