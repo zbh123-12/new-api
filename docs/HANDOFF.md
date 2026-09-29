@@ -2,16 +2,22 @@
 
 **目的**: 任何新开的 Codex 会话读这一份文件就能理解项目当前状态、已完成工作、决策依据、待办事项。
 
+**当前状态(2026-09-29)**:Phase 2 全部完成,系统已上线。详情见 §13。
+
 ## 1. 基本面
-- repo: C:\Users\93630\Documents\ChatGPT\new-api
-- 当前分支: codex/phase2-billing-bypass (13 commits,已 push 到 origin)
+- repo: C:\\Users\\93630\\Documents\\ChatGPT\\new-api
+- 当前分支: codex/phase2-billing-bypass (17 commits,已 push 到 origin)
 - 远端: origin = https://github.com/zbh123-12/new-api.git (用户 fork)
 - 上游: upstream = https://github.com/QuantumNous/new-api.git (官方)
 - Docker: new-api / postgres / redis 都 healthy (port 3000)
-- Go 不在 PATH: 用 docker run --rm golang:1.25-alpine 跑后端
+- Go 不在 PATH: 用 docker run --rm golang:1.26.1-alpine 跑后端
 - GitHub 网络不稳, push 经常要重试多次
 
-## 3. commit 历史(13 个)
+## 3. commit 历史(17 个)
+ 02de9d5 chore(lint): fix high-severity oxlint findings, prep for release    ← Sprint 收尾
+ 5c63769 chore(json): route all business marshaling through common.*         ← 质量债清理
+ b50ded0 chore(i18n): translate missing keys for fr/ja/ru/vi/zh; brand literal whitelist
+6978afc feat(subscription): DB-layer unique constraint for one active subscription per user  ← Phase 2.5
  8b08c9b feat(plan): customizable window quota duration (seconds)            ← Phase 2.4
  ef7c34a feat(admin): simple numeric window quota inspection page             ← Phase 2.3
  5de4864 feat(subscription): MiniMax-style window quota UI                    ← Phase 2.2
@@ -57,6 +63,61 @@
 - plan-form.ts 加 2 字段,默认 18000(5h)/604800(7d),最小 60 秒
 - subscriptions-mutate-drawer.tsx 加 2 FormField
 - i18n 6 keys × 7 locales(plan.field.window{5h,Weekly}Seconds.{label,help,placeholder})
+
+### Phase 2.5 Sprint 收尾(2026-09-28 ~ 2026-09-29)
+**目标**:把上一阶段留下的 4 项收尾全部清掉,然后上线。
+
+#### 2.5.a DB 层 partial unique index(commit 6978afc)
+- `model/user_subscription_unique_active_index.go` 新文件
+- `migrateUserSubscriptionUniqueActiveIndex()` 挂在 `migrateDB()` 里 `migrateSubscriptionPlanPriceAmount()` 之后
+- 两步幂等:
+  1. `dedupeUserSubscriptionsActive()` — 同 user 多 active 时把旧标 cancelled,只留 max(id)
+  2. `ensureUserSubscriptionActiveUniqueIndex()` — 三库兼容:
+     - SQLite/PostgreSQL:`CREATE UNIQUE INDEX IF NOT EXISTS idx_user_sub_one_active
+       ON user_subscriptions(user_id) WHERE status='\''active'\''`
+     - MySQL(无 partial index):加 STORED generated column `active_user_id`
+       (`active`→1,否则 NULL)+ `UNIQUE(user_id, active_user_id)`。
+- 测试:`model/user_subscription_unique_active_index_test.go` 6 个 case 全过。
+- 实测:重启容器后 `pg_indexes` 出现 `idx_user_sub_one_active`,脏数据 user_id=1 自动清理
+  (3 active → 1 active + 2 cancelled),直接 SQL 第二次插入 active 被
+  `duplicate key value violates unique constraint "idx_user_sub_one_active"` 拒绝。
+  cancelled 行仍然可以共存(部分索引 WHERE 子句过滤掉 cancelled)。
+
+#### 2.5.b JSON wrapper 修复(commit 5c63769)
+- AGENTS.md §"JSON package" 要求业务代码用 `common.Marshal/Unmarshal/DecodeJson`,
+  禁止直接调 `encoding/json`。
+- 替换 97 处:`json.Marshal`→`common.Marshal` 等。
+- 类型级(`json.RawMessage`、`json.Valid`)保留 import — AGENTS.md 允许。
+- 11 个文件 import 已删,2 个文件用 `rootcommon` 别名解决 `common` / `relay/common` 冲突。
+- 验证:`go build ./...` OK,`go test ./...` 30+ 包 0 fail。
+
+#### 2.5.c i18n 补译(commit b50ded0)
+- 之前 fr/ja/ru/vi 共 278 个 key 未翻译,zh/zh-TW/en 已完成。
+- 新增 `web/scripts/add-translations.mjs`:接受 `{locale: {key: value}}` patch JSON,
+  merge 到 translation,字母排序,2 空格 + 末 newline。满足 AGENTS.md "locale write 必须走脚本"。
+- 在 `sync-i18n.mjs` 的 `BRAND_AND_LITERAL_KEYS` 加
+  `Max · per month` / `Plus · per month` / `Ultra · per month` 三条 brand literal,
+  避免 `isLikelyUntranslated` 误报。
+- 4 个 patch JSON 累计翻译 363 个 key,7 语言全部 0 missing / 0 untranslated。
+
+#### 2.5.d Lint 必修类修复(commit 02de9d5)
+- `react/button-has-type` 1 处:`<button>` 加 `type="button"`,防止表单意外提交。
+- `react/iframe-missing-sandbox` 2 处:
+  - `routes/_authenticated/chat/$chatId.tsx`:加 `sandbox=""`
+  - `components/ai-elements/web-preview.tsx`:去掉 `allow-same-origin`(与 `allow-scripts` 互斥)
+- `promise/catch-or-return` 2 处真问题 + 1 处 false 阳性:
+  - `prompt-input.tsx`、`users-mutate-drawer.tsx` 在 promise 链末尾加 `.catch(() => {})`
+- `npx oxlint --fix-suggestions` 自动修 ~7 个机械错误。
+- 验证:`npm run typecheck` exit 0,`npm run build` exit 0。
+
+#### 2.5.e 上线验证(2026-09-29)
+- `docker compose up -d --force-recreate new-api` 起容器
+- 14 个 API 端点 smoke test 全 200(login、self、token、subscription、topup/info、
+  dashboard、admin/users/23/window-usage、admin/plans 等)
+- DB partial unique index 验证:
+  - 重复 active 插入 → 拒绝
+  - 重复 cancelled 插入 → 允许(部分索引 WHERE 过滤)
+- 容器 `Up 36 seconds (healthy)`
 
 
 ## 5. 关键架构决策
@@ -164,5 +225,82 @@ test_path.txt / test_path2.txt  (调试残留)
 - GitHub 网络: 不稳,需多次重试 push(间隔 30-90 秒)
 - AGENTS.md 必读: 项目规约 — 后端测试用 testify/require + assert,i18n 必走脚本,DB 三库兼容,字段命名约定
 
-## 12. 新会话开场白模板
-继续 new-api 项目。当前分支 codex/phase2-billing-bypass,13 个 commits 已 push。请读 docs/HANDOFF.md 和 AGENTS.md。下一件事是 [DB unique partial index / Step 5 admin guard / 清理工作树 / PR 准备 / e2e 验证]。
+## 13. 系统上线状态(2026-09-29)
+
+- 容器:new-api / postgres / redis 都 healthy
+- API smoke:14 个核心端点全 200
+- 后端测试:`go test ./...` 30+ 包,0 fail
+- 前端 typecheck:exit 0
+- 前端 build:exit 0
+- i18n:7 语言 0 missing / 0 untranslated
+- DB partial unique index:生效,user_id=1 dedupe 自动(3 active -> 1)
+- GitHub:`codex/phase2-billing-bypass` 4 个新 commit 已 push
+
+### 13.1 已知技术债(不影响当前运行)
+
+| 规则 | 数量 | 影响 | 还债 ROI |
+|---|---|---|---|
+| `react(no-array-index-key)` | 49 | 真 bug 源 - 列表带 state 时会错配 | 高(必修) |
+| `react(set-state-in-effect)` | 59 | 性能 - 额外 render | 中 |
+| `react(incompatible-library)` | 25 | React 19 升级风险 | 中(下个 sprint) |
+| `react(refs)` | 21 | ref 转发 | 中 |
+| `react-hooks(exhaustive-deps)` | 3 | stale closure | 中 |
+| `import(no-cycle)` | 4 | 循环 import | 低(目前无问题) |
+| 风格类(typescript/unicorn/curly) | ~280 | 纯风格 | 高(机械,但量大) |
+| 工作树噪音(.pnpm-store/) | 30+ 文件 | 不影响 | 0(永久忽略) |
+
+### 13.2 已知边角
+- `/api/status` 的 `version` 字段为空 - Dockerfile 用 cache build 没注入新版本号。
+  重 build with `--no-cache` 可恢复,或把 VERSION 改成环境变量传入。
+- 启动 race condition:`new-api` 在 `postgres` 还没就绪时启动会 FATAL。docker compose
+  的 `depends_on: service_healthy` 应该可解,但本机用 healthcheck 不严格。
+- Working tree 有 `.pnpm-store/` 镜像副本 30+ 文件 - 已经在 `.gitignore`,
+  但 `git status` 仍显示。cosmetic noise。
+
+## 14. 接下来要干的事(2026-09-29 起)
+
+### 14.1 紧急(P0 - 必修)
+1. **49 处 `react(no-array-index-key)` 修复** - 真 bug 源,列表带 state 时会错配。
+   策略:每个 .map() 改用稳定 key,可以用 `useId()` 或 item.id;实在没法稳定的,
+   加 `oxlint-disable-next-line` 注释 + 在每个文件中加一个 TODO comment。
+   工作量:~4 小时,一个人能做完。
+
+### 14.2 重要(P1 - 应该修)
+2. **25 处 `react(incompatible-library)` 升级/替换** - React 19 重构前必须清,
+   否则升级到 React 19.x 时这些库会突然报错。建议先把 < 5 个最常见的库
+   替换或 fork 修复。
+3. **3 处 `react-hooks(exhaustive-deps)` 修复** - stale closure 是真的。
+   工作量:~30 分钟。
+4. **4 处 `import(no-cycle)` 抽公共模块** - 当前能跑,但改文件时易触发
+   编译顺序问题。工作量:~2 小时。
+
+### 14.3 可选(P2 - 风格债)
+5. **机械修 ~280 处风格 lint**:
+   - `typescript(no-import-type-side-effects)` 78 - 自动跑
+     `oxlint --fix-suggestions` 一次就清大部分
+   - `eslint(curly)` 55 - 大量机械加花括号
+   - `eslint(no-nested-ternary)` 59 - 拆 if-else
+   - `unicorn(prefer-spread)` 等 ~110 处 - 替换 spread/slice/startsWith
+   工作量:~4-6 小时。建议每周抽 1-2 小时持续清,直到 < 50 处。
+
+### 14.4 长期(P3 - 维护)
+6. **admin unlimited_quota=true 守卫**(#7.2)- 等产品决策:非 admin 是否能
+   创建 unlimited quota key?
+7. **PR 准备**(原 #7.4)- 17 个 commits 合成 1 个 PR,
+   标题建议 `feat(subscription): phase 2 - token-based window quotas + admin insights`。
+   git user.name=`Your Name` 是历史 29 commits 中的一员,无需 AI 协助声明。
+8. **清理工作树**:`.pnpm-store/` 镜像噪音、`.gitignore` plans 误判。
+
+### 14.5 维护节奏建议
+- 每次 PR 之前跑:
+  ```
+  cd web && npm run typecheck && npm run build && npm run lint
+  cd .. && go test ./... && go vet ./...
+  ```
+- 每月跑一次 `npm run i18n:sync`,看 7 语言是否有遗漏未翻译。
+- 每月跑一次 DB schema diff(`pg_dump --schema-only` 比对)。
+
+## 15. 新会话开场白模板
+继续 new-api 项目。当前分支 codex/phase2-billing-bypass,17 个 commits 已 push,
+系统已上线(2026-09-29)。请读 docs/HANDOFF.md #13-14, #15 和 AGENTS.md。
+下一件事从 #14.1 P0 列表里选一个(no-array-index-key / incompatible-library / PR 准备)。
