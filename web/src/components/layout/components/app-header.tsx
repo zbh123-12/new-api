@@ -111,8 +111,7 @@ export function AppHeader({
   const notifications = useNotifications()
 
   return (
-    <>
-      <Header>
+    <Header>
         <SystemBrand variant='inline' />
 
         {leftContent ? (
@@ -145,6 +144,5 @@ export function AppHeader({
           </div>
         )}
       </Header>
-    </>
   )
 }

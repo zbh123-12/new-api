@@ -764,6 +764,7 @@ export const PromptInput = ({
         // Don't clear on error - user may want to retry
       }
     })
+    .catch(() => {})
   }
 
   // Render with or without local provider
