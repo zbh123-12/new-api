@@ -75,6 +75,13 @@ export const userSubscriptionSchema = z.object({
   amount_total: z.number(),
   amount_used: z.number(),
   next_reset_time: z.number().optional(),
+  // Snapshot of the plan at purchase: when non-empty, the user has been
+  // promoted into the matching user group for the lifetime of this
+  // subscription. Mirrors `user_subscriptions.upgrade_group`.
+  upgrade_group: z.string().optional().default(''),
+  // CSV snapshot of models this subscription grants access to. Empty
+  // means unrestricted. Mirrors `user_subscriptions.allowed_models`.
+  allowed_models: z.string().optional().default(''),
 })
 
 export type UserSubscription = z.infer<typeof userSubscriptionSchema>

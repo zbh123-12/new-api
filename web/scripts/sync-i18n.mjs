@@ -31,6 +31,9 @@ const OBFUSCATED_KEYS = [
 
 const BRAND_AND_LITERAL_KEYS = new Set([
   'AI Proxy',
+  'Max · per month',
+  'Plus · per month',
+  'Ultra · per month',
   'AIGC2D',
   'Alipay',
   'Anthropic',

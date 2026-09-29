@@ -25,7 +25,7 @@ import { SectionPageLayout } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 
 import { SubscriptionStatusCard } from '@/features/subscriptions/components/subscription-status-card'
-import type { SelfSubscriptionData, UserSubscriptionRecord } from '@/features/subscriptions/types'
+import type { SelfSubscriptionData } from '@/features/subscriptions/types'
 import { getUserSubscriptionSelf } from '@/lib/api'
 
 export const Route = createFileRoute('/_authenticated/plans/current')({

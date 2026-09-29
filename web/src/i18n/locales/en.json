@@ -1328,6 +1328,7 @@
     "default": "default",
     "Default": "Default",
     "Default / range": "Default / range",
+    "Default 30-day expiry": "Expiration par défaut 30 jours",
     "Default administrator permissions can be overridden for this user.": "Default administrator permissions can be overridden for this user.",
     "Default API Version *": "Default API Version *",
     "Default API version for this channel": "Default API version for this channel",

@@ -174,16 +174,21 @@ export function formatPrice(
 
 /**
  * Format price for a specific group (token-based)
+ *
+ * `_group` and `_groupRatio` are reserved for future per-group tier pricing;
+ * today the helper returns the same value for every group, so they are unused.
+ * They are kept in the signature because callers (model-details renderers)
+ * always pass them and removing them would force a wider refactor.
  */
 export function formatGroupPrice(
   model: PricingModel,
-  group: string,
+  _group: string,
   type: PriceType,
   tokenUnit: TokenUnit,
   showWithRecharge = false,
   priceRate = 1,
   usdExchangeRate = 1,
-  groupRatio: Record<string, number>
+  _groupRatio: Record<string, number>
 ): string {
   if (model.quota_type === QUOTA_TYPE_VALUES.REQUEST) {
     return '-'
@@ -208,15 +213,19 @@ export function formatGroupPrice(
 }
 
 /**
- * Format fixed price for pay-per-request models (with specific group)
+ * Format fixed price for pay-per-request models (with specific group).
+ *
+ * `_group` / `_groupRatio` are reserved for future per-group tier pricing;
+ * today the helper returns the same value for every group, so they are
+ * unused. Kept in the signature for the same reason as `formatGroupPrice`.
  */
 export function formatFixedPrice(
   model: PricingModel,
-  group: string,
+  _group: string,
   showWithRecharge = false,
   priceRate = 1,
   usdExchangeRate = 1,
-  groupRatio: Record<string, number>
+  _groupRatio: Record<string, number>
 ): string {
   if (model.quota_type !== QUOTA_TYPE_VALUES.REQUEST) {
     return '-'

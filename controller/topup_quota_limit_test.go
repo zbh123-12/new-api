@@ -76,11 +76,17 @@ func TestTopUpQuotaValidation(t *testing.T) {
 func TestValidateTopUpQuotaReturnsMaximumAmount(t *testing.T) {
 	oldQuotaPerUnit := common.QuotaPerUnit
 	oldDisplayType := operation_setting.GetGeneralSetting().QuotaDisplayType
+	// Force getMaxTopUpAmount() to take its quota-column fallback path so this
+	// test exercises the "no admin cap configured" boundary (default MaxTopUp
+	// in payment_setting.go is 1000, which would otherwise clamp earlier).
+	oldMaxTopUp := operation_setting.GetPaymentSetting().MaxTopUp
+	operation_setting.GetPaymentSetting().MaxTopUp = 0
 	common.QuotaPerUnit = 500000
 	operation_setting.GetGeneralSetting().QuotaDisplayType = operation_setting.QuotaDisplayTypeUSD
 	t.Cleanup(func() {
 		common.QuotaPerUnit = oldQuotaPerUnit
 		operation_setting.GetGeneralSetting().QuotaDisplayType = oldDisplayType
+		operation_setting.GetPaymentSetting().MaxTopUp = oldMaxTopUp
 	})
 
 	maxAmount := decimal.NewFromInt(common.MaxQuota - 1).
@@ -96,11 +102,17 @@ func TestValidateTopUpQuotaReturnsMaximumAmount(t *testing.T) {
 func TestRequestAmountRejectsTopUpThatCannotBeSettled(t *testing.T) {
 	oldQuotaPerUnit := common.QuotaPerUnit
 	oldDisplayType := operation_setting.GetGeneralSetting().QuotaDisplayType
+	// Same fix as TestValidateTopUpQuotaReturnsMaximumAmount: bypass the
+	// default 1000 admin cap so the controller rejects purely on quota
+	// overflow rather than on the admin-configured ceiling.
+	oldMaxTopUp := operation_setting.GetPaymentSetting().MaxTopUp
+	operation_setting.GetPaymentSetting().MaxTopUp = 0
 	common.QuotaPerUnit = 500000
 	operation_setting.GetGeneralSetting().QuotaDisplayType = operation_setting.QuotaDisplayTypeUSD
 	t.Cleanup(func() {
 		common.QuotaPerUnit = oldQuotaPerUnit
 		operation_setting.GetGeneralSetting().QuotaDisplayType = oldDisplayType
+		operation_setting.GetPaymentSetting().MaxTopUp = oldMaxTopUp
 	})
 
 	gin.SetMode(gin.TestMode)
