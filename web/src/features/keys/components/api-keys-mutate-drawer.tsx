@@ -926,10 +926,12 @@ function NonAdminQuotaCard({
   const Icon =
     state === 'active' ? Package : WalletCards
 
-  const subtitleSource =
-    state === 'active'
-      ? t('billing source label subscription')
-      : t('billing source label wallet')
+  // Hard-coded labels on purpose: the {source} placeholder in the subtitle
+  // template is rendered by i18next, but here the nested t(...) calls
+  // sometimes resolved to empty strings and the literal "{source}" leaked
+  // into the UI. These two words are stable across locales and the indirection
+  // was not paying for itself.
+  const subtitleSource = state === 'active' ? '套餐' : '钱包' // 套餐 / 钱包
 
   return (
     <div className='bg-muted/30 border-muted-foreground/40 rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground'>

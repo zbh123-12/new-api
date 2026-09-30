@@ -94,7 +94,9 @@ function WindowMeter({
     <div>
       <div className='flex justify-between text-xs'>
         <span className='text-muted-foreground'>{title}</span>
-        <span className='tabular-nums text-foreground'>{percent}%</span>
+        <span className='tabular-nums text-foreground'>
+          {percent === 0 ? '<1%' : `${percent}%`}
+        </span>
       </div>
       <div
         className='relative mt-1 h-2 overflow-hidden rounded-full bg-slate-200'
@@ -108,7 +110,13 @@ function WindowMeter({
             'absolute inset-y-0 left-0 transition-[width] duration-500',
             accentClass,
           )}
-          style={{ width: percent + '%' }}
+          style={{
+            // Always show a minimum 4px width when the meter is rendered
+            // and the user has any positive (or zero) usage to indicate that
+            // the meter exists. Once percent >= 1 the real percentage wins.
+            width:
+              percent < 1 ? '4px' : `${percent}%`,
+          }}
         />
       </div>
       <div className='mt-1 text-xs text-muted-foreground'>
